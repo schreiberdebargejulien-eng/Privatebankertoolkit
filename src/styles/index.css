@@ -1,0 +1,53 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Jetons de couleur (RVB) — clair par défaut, sombre via .dark */
+:root {
+  --bg: 247 248 250;        /* #F7F8FA */
+  --surface: 255 255 255;
+  --surface2: 238 241 245;
+  --fg: 16 28 44;           /* #101C2C */
+  --muted: 110 121 136;
+  --line: 223 228 235;
+  --accent: 160 128 74;     /* champagne assombri pour contraste sur clair */
+  --pos: 22 128 84;
+  --neg: 196 50 58;
+  --warn: 176 118 20;
+  color-scheme: light;
+}
+.dark {
+  --bg: 16 28 44;           /* #101C2C */
+  --surface: 22 38 59;      /* #16263B */
+  --surface2: 29 53 83;     /* #1D3553 */
+  --fg: 240 242 246;
+  --muted: 137 147 161;     /* #8993A1 */
+  --line: 41 62 90;
+  --accent: 197 164 109;    /* #C5A46D */
+  --pos: 74 196 140;
+  --neg: 240 104 110;
+  --warn: 230 175 80;
+  color-scheme: dark;
+}
+
+html, body, #root { height: 100%; }
+body {
+  @apply bg-bg text-fg font-sans antialiased;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-text-size-adjust: 100%;
+  overscroll-behavior-y: none;
+  font-feature-settings: 'cv11', 'ss01';
+}
+.tnum { font-variant-numeric: tabular-nums; }
+.safe-top { padding-top: env(safe-area-inset-top); }
+.safe-bottom { padding-bottom: env(safe-area-inset-bottom); }
+input, select, textarea, button { font: inherit; }
+/* iOS : pas de zoom à la saisie (≥ 16px) */
+input, select, textarea { font-size: 16px; }
+input[type='range'] { accent-color: rgb(var(--accent)); }
+.scrollbar-none::-webkit-scrollbar { display: none; }
+.scrollbar-none { scrollbar-width: none; }
+
+@media print {
+  .no-print { display: none !important; }
+}
