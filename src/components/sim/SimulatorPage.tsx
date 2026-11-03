@@ -98,10 +98,10 @@ export function SimulatorPage({ def }: { def: SimulatorDef }) {
 
   const Icon = def.icon;
   return (
-    <div className="pb-40">
+    <div className="pb-40 lg:pb-10">
       {/* En-tête */}
       <div className="sticky top-0 z-20 bg-bg/85 backdrop-blur-xl safe-top no-print">
-        <div className="flex items-center gap-1 px-2 h-14">
+        <div className="flex items-center gap-1 px-2 md:px-6 h-14 max-w-6xl mx-auto">
           <Button variant="ghost" size="icon" onClick={() => (window.history.length > 1 ? nav(-1) : nav('/'))} aria-label="Retour"><ArrowLeft className="h-5 w-5" /></Button>
           <div className="flex-1 min-w-0 text-[15px] font-semibold truncate">{def.title}</div>
           <Button variant="ghost" size="icon" onClick={onReset} aria-label="Réinitialiser"><RotateCcw className="h-[18px] w-[18px]" /></Button>
@@ -111,8 +111,8 @@ export function SimulatorPage({ def }: { def: SimulatorDef }) {
         </div>
       </div>
 
-      <div className="px-4 max-w-2xl mx-auto">
-        <div className="flex items-start gap-3 pt-1 pb-4">
+      <div className="px-4 md:px-8 max-w-2xl md:max-w-3xl lg:max-w-6xl mx-auto">
+        <div className="flex items-start gap-3 pt-1 pb-4 lg:pb-6">
           <div className="h-11 w-11 shrink-0 rounded-xl bg-accent/10 text-accent flex items-center justify-center"><Icon className="h-5 w-5" /></div>
           <div>
             <h1 className="text-[22px] font-semibold tracking-tight leading-tight">{def.title}</h1>
@@ -120,13 +120,14 @@ export function SimulatorPage({ def }: { def: SimulatorDef }) {
           </div>
         </div>
 
+        <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)] lg:gap-6 lg:items-start">
         {/* Formulaire */}
         <div className="space-y-3">
           {def.customForm && def.customFormPosition === 'start' && def.customForm({ values, set })}
           {groups.map((g, gi) => (!g.visibleIf || g.visibleIf(values)) && (
             <Card key={gi} className="p-4">
               {g.label && <div className="text-[12px] font-semibold uppercase tracking-[0.08em] text-accent mb-3">{g.label}</div>}
-              <div className="space-y-4">
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-1">
                 {g.fields.filter((f) => !f.visibleIf || f.visibleIf(values)).map((f) => <FieldRenderer key={f.key} field={f} values={values} set={set} />)}
               </div>
             </Card>
@@ -135,8 +136,9 @@ export function SimulatorPage({ def }: { def: SimulatorDef }) {
           <p className="text-[12px] text-muted px-1">Valeurs par défaut indicatives — à adapter à la situation étudiée.</p>
         </div>
 
-        {/* Résultats */}
-        <div ref={resultsRef} className="mt-6 space-y-3 scroll-mt-16" id="results">
+        {/* Résultats (colonne de droite collante sur grand écran) */}
+        <div className="mt-6 lg:mt-0 lg:sticky lg:top-16 lg:max-h-[calc(100vh-5rem)] lg:overflow-y-auto lg:pb-6 lg:pr-1 scrollbar-none">
+        <div ref={resultsRef} className="space-y-3 scroll-mt-16" id="results">
           {!result.ok ? (
             <Card className="p-4 border-neg/30 bg-neg/[0.05]">
               <div className="text-[13px] font-semibold text-neg mb-1.5">Calcul impossible</div>
@@ -159,12 +161,14 @@ export function SimulatorPage({ def }: { def: SimulatorDef }) {
         </div>
 
         {/* Actions */}
-        <div className="grid grid-cols-2 gap-2 mt-5 no-print">
+        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-2 gap-2 mt-5 no-print">
           <Button onClick={onCopy} disabled={!doc}><Copy className="h-4 w-4" /> Copier</Button>
           <Button onClick={onPDF} disabled={!doc}><FileDown className="h-4 w-4" /> Export PDF</Button>
           <Button onClick={onShare}><Share2 className="h-4 w-4" /> Partager</Button>
           <Button onClick={onSave}><Bookmark className="h-4 w-4" /> Enregistrer</Button>
-          <Button onClick={onReset} variant="ghost" className="col-span-2 text-muted"><RotateCcw className="h-4 w-4" /> Réinitialiser</Button>
+          <Button onClick={onReset} variant="ghost" className="col-span-2 md:col-span-4 lg:col-span-2 text-muted"><RotateCcw className="h-4 w-4" /> Réinitialiser</Button>
+        </div>
+        </div>
         </div>
       </div>
 
@@ -172,7 +176,7 @@ export function SimulatorPage({ def }: { def: SimulatorDef }) {
       {result.ok && !resultsVisible && (
         <button
           onClick={() => resultsRef.current?.scrollIntoView({ behavior: 'smooth' })}
-          className="fixed left-3 right-3 z-30 mx-auto max-w-2xl rounded-2xl bg-night text-white px-4 py-3 flex items-center justify-between shadow-xl shadow-night/30 no-print dark:bg-surface2 border border-white/5"
+          className="lg:hidden fixed left-3 right-3 z-30 mx-auto max-w-2xl md:max-w-3xl rounded-2xl bg-night text-white px-4 py-3 flex items-center justify-between shadow-xl shadow-night/30 no-print dark:bg-surface2 border border-white/5"
           style={{ bottom: 'calc(env(safe-area-inset-bottom) + 76px)' }}
         >
           <span className="text-[12px] uppercase tracking-[0.08em] text-gold truncate pr-3">{result.value.report.headline.label}</span>

@@ -1,9 +1,10 @@
 import { Link } from 'react-router-dom';
 import { Trash2, Star, History, Bookmark } from 'lucide-react';
-import { PageHeader } from '@/components/layout/AppShell';
+import { PageHeader, PAGE } from '@/components/layout/AppShell';
 import { SimList, SimRow } from '@/components/SimList';
 import { Button, Card, SectionTitle } from '@/components/ui/primitives';
 import { getMeta, type SimMeta } from '@/simulators/catalog';
+import { cn } from '@/lib/cn';
 import { useFavorites, useRecents, useScenarios } from '@/lib/store';
 
 function Empty({ icon, text }: { icon: React.ReactNode; text: string }) {
@@ -16,9 +17,9 @@ export function FavoritesPage() {
   const { scenarios, remove, clear: clearScenarios } = useScenarios();
   const metas = (ids: string[]) => ids.map(getMeta).filter(Boolean) as SimMeta[];
   return (
-    <div className="pb-28">
+    <div className="pb-28 lg:pb-12">
       <PageHeader title="Favoris" subtitle="Vos outils et scénarios, sur cet appareil uniquement" />
-      <div className="px-4 max-w-2xl mx-auto">
+      <div className={cn(PAGE, 'lg:max-w-4xl')}>
         <SectionTitle>Simulateurs favoris</SectionTitle>
         {favorites.length ? (
           <Card className="divide-y divide-line/60 overflow-hidden">

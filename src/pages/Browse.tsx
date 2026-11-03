@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { ArrowLeft, ChevronRight } from 'lucide-react';
-import { PageHeader } from '@/components/layout/AppShell';
+import { PageHeader, PAGE } from '@/components/layout/AppShell';
 import { SearchBar } from '@/components/SearchBar';
 import { SimList } from '@/components/SimList';
 import { Button, Card, SectionTitle } from '@/components/ui/primitives';
@@ -12,14 +12,14 @@ export function CalculatorsPage() {
   const [q, setQ] = useState('');
   const results = useMemo(() => searchSimulators(q), [q]);
   return (
-    <div className="pb-28">
+    <div className="pb-28 lg:pb-12">
       <PageHeader title="Calculateurs" subtitle="Bibliothèque par catégorie" />
-      <div className="px-4 max-w-2xl mx-auto space-y-4">
+      <div className={`${PAGE} space-y-4`}>
         <SearchBar value={q} onChange={setQ} />
         {q ? <SimList items={results} /> : (
-          <Card className="divide-y divide-line/60 overflow-hidden">
+          <Card className="overflow-hidden"><div className="grid gap-px bg-line/60 lg:grid-cols-2">
             {CATEGORIES.map((c) => (
-              <Link key={c.id} to={`/calculateurs/${c.id}`} className="flex items-center gap-3 px-4 py-3.5 active:bg-surface2/70">
+              <Link key={c.id} to={`/calculateurs/${c.id}`} className="flex items-center gap-3 px-4 py-3.5 bg-surface active:bg-surface2/70 lg:hover:bg-surface2/50">
                 <div className="h-10 w-10 rounded-xl bg-night text-gold flex items-center justify-center dark:bg-surface2"><c.icon className="h-[19px] w-[19px]" /></div>
                 <div className="flex-1 min-w-0">
                   <div className="text-[15px] font-medium">{c.label}</div>
@@ -29,7 +29,8 @@ export function CalculatorsPage() {
                 <ChevronRight className="h-4 w-4 text-muted/60" />
               </Link>
             ))}
-          </Card>
+            <div className="hidden lg:block bg-surface" />
+          </div></Card>
         )}
       </div>
     </div>
@@ -41,10 +42,10 @@ export function CategoryPage() {
   const cat = CATEGORIES.find((c) => c.id === id);
   if (!cat) return <div className="p-6">Catégorie introuvable.</div>;
   return (
-    <div className="pb-28">
+    <div className="pb-28 lg:pb-12">
       <div className="safe-top px-2 pt-2"><Link to="/calculateurs"><Button variant="ghost" size="sm" tabIndex={-1}><ArrowLeft className="h-4 w-4" /> Catégories</Button></Link></div>
       <PageHeader title={cat.label} subtitle={cat.description} />
-      <div className="px-4 max-w-2xl mx-auto">
+      <div className={PAGE}>
         <SimList items={byCategory(cat.id as CategoryId)} />
         {cat.id === 'entreprise' && (
           <p className="text-[12px] text-muted mt-3 px-1 leading-snug">Simulateurs spécifiques prévus dans une version ultérieure : arbitrage rémunération / dividendes, pacte Dutreil, apport-cession (150-0 B ter). Ils exigent une modélisation des cotisations sociales et des régimes d’exonération qui n’est pas encore intégrée de manière fiable.</p>
@@ -56,9 +57,9 @@ export function CategoryPage() {
 
 function SectionPage({ title, subtitle, groups }: { title: string; subtitle: string; groups: { label: string; ids: string[] }[] }) {
   return (
-    <div className="pb-28">
+    <div className="pb-28 lg:pb-12">
       <PageHeader title={title} subtitle={subtitle} />
-      <div className="px-4 max-w-2xl mx-auto">
+      <div className={PAGE}>
         {groups.map((g) => (
           <div key={g.label}>
             <SectionTitle>{g.label}</SectionTitle>

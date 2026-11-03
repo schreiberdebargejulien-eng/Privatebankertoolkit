@@ -1,20 +1,21 @@
 import { Link } from 'react-router-dom';
 import { ArrowLeft, ChevronRight, Trash2, ShieldCheck, BookOpen } from 'lucide-react';
-import { PageHeader } from '@/components/layout/AppShell';
+import { PageHeader, PAGE } from '@/components/layout/AppShell';
 import { Button, Card, SectionTitle, Badge } from '@/components/ui/primitives';
 import { FieldShell, NumberInput, Segmented, Select, Toggle } from '@/components/ui/fields';
 import { useSettings, type Currency, type ThemePref } from '@/lib/settings';
 import { clearAllLocalData } from '@/lib/storage';
 import { ALL_RULES, IR_VERSIONS, pickVersion } from '@/engine';
 import { dateFR } from '@/lib/format';
+import { cn } from '@/lib/cn';
 
 export function SettingsPage() {
   const { settings, update } = useSettings();
   return (
-    <div className="pb-28">
-      <div className="safe-top px-2 pt-2"><Link to="/"><Button variant="ghost" size="sm" tabIndex={-1}><ArrowLeft className="h-4 w-4" /> Accueil</Button></Link></div>
+    <div className="pb-28 lg:pb-12">
+      <div className="safe-top px-2 pt-2 lg:hidden"><Link to="/"><Button variant="ghost" size="sm" tabIndex={-1}><ArrowLeft className="h-4 w-4" /> Accueil</Button></Link></div>
       <PageHeader title="Paramètres" subtitle="Hypothèses par défaut et confidentialité" />
-      <div className="px-4 max-w-2xl mx-auto">
+      <div className={cn(PAGE, 'lg:max-w-3xl')}>
         <SectionTitle>Affichage</SectionTitle>
         <Card className="p-4 space-y-4">
           <FieldShell label="Thème"><Segmented<ThemePref> value={settings.theme} onChange={(theme) => update({ theme })} options={[{ value: 'system', label: 'Système' }, { value: 'light', label: 'Clair' }, { value: 'dark', label: 'Sombre' }]} /></FieldShell>
@@ -55,10 +56,10 @@ export function SourcesPage() {
   const groups = ALL_RULES.reduce<Record<string, typeof ALL_RULES>>((acc, r) => { const k = r.id.split('-')[1]; (acc[k] ||= []).push(r); return acc; }, {});
   const names: Record<string, string> = { IR: 'Impôt sur le revenu', IFI: 'IFI', CAP: 'Revenus du capital et assurance-vie', PER: 'Épargne retraite', DMTG: 'Donations et successions', '669': 'Démembrement' };
   return (
-    <div className="pb-28">
+    <div className="pb-28 lg:pb-12">
       <div className="safe-top px-2 pt-2"><Button variant="ghost" size="sm" onClick={() => history.back()}><ArrowLeft className="h-4 w-4" /> Retour</Button></div>
       <PageHeader title="Barèmes et sources" subtitle="Règles versionnées par date d’effet" />
-      <div className="px-4 max-w-2xl mx-auto">
+      <div className={cn(PAGE, 'lg:max-w-3xl')}>
         {Object.entries(groups).map(([k, rules]) => (
           <div key={k}>
             <SectionTitle>{names[k] ?? k}</SectionTitle>

@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Settings as SettingsIcon, ShieldCheck, WifiOff } from 'lucide-react';
-import { PageHeader } from '@/components/layout/AppShell';
+import { PageHeader, PAGE } from '@/components/layout/AppShell';
 import { SearchBar } from '@/components/SearchBar';
 import { SimList, SimTiles } from '@/components/SimList';
 import { SectionTitle, Button, Card } from '@/components/ui/primitives';
@@ -30,13 +30,13 @@ export function HomePage() {
   const today = new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
 
   return (
-    <div className="pb-28">
+    <div className="pb-28 lg:pb-12">
       <PageHeader
         title={greeting()}
         subtitle={`${today.charAt(0).toUpperCase()}${today.slice(1)} · ${SIMULATORS.length} simulateurs disponibles`}
-        right={<Link to="/parametres" aria-label="Paramètres"><Button variant="secondary" size="icon" tabIndex={-1}><SettingsIcon className="h-5 w-5" /></Button></Link>}
+        right={<Link to="/parametres" aria-label="Paramètres" className="lg:hidden"><Button variant="secondary" size="icon" tabIndex={-1}><SettingsIcon className="h-5 w-5" /></Button></Link>}
       />
-      <div className="px-4 max-w-2xl mx-auto">
+      <div className={PAGE}>
         <SearchBar value={q} onChange={setQ} />
 
         {q ? (
@@ -70,7 +70,7 @@ export function HomePage() {
             )}
 
             <SectionTitle>Raccourcis</SectionTitle>
-            <div className="space-y-2.5">
+            <div className="grid gap-2.5 lg:grid-cols-3">
               {SHORTCUTS.map((sc) => (
                 <Card key={sc.label} className="p-3.5">
                   <div className="text-[13px] font-semibold mb-2.5">{sc.label}</div>
