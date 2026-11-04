@@ -1,5 +1,5 @@
 import {
-  Activity, ArrowLeftRight, Banknote, BarChart3, Building2, CalendarClock, Calculator, Coins, Gift, GitCompare, Home, Landmark,
+  Activity, Banknote, BarChart3, Building2, CalendarClock, Calculator, Coins, Gift, GitCompare, Home, Landmark,
   Layers, LineChart, Lock, PiggyBank, PieChart, Percent, Repeat, Scale, ScrollText, Shield, Sparkles, Split, TrendingUp, Users,
   Wallet, Briefcase, Hourglass, type LucideIcon,
 } from 'lucide-react';
@@ -23,10 +23,10 @@ export const CATEGORIES: { id: CategoryId; label: string; description: string; i
   { id: 'retraite', label: 'Retraite', description: 'PER, rente, revenus complémentaires', icon: Hourglass },
   { id: 'transmission', label: 'Succession et donation', description: 'Droits, abattements, démembrement', icon: Gift },
   { id: 'credit', label: 'Crédit et financement', description: 'Amortissable, in fine, lombard', icon: Landmark },
-  { id: 'structures', label: 'Produits structurés', description: 'Autocall, Phoenix, reverse convertible', icon: Sparkles },
+  { id: 'structures', label: 'Produits structurés', description: 'Autocall, Phoenix, reverse convertible, capital protégé', icon: Sparkles },
   { id: 'obligations', label: 'Obligations', description: 'Rendement actuariel, coupon couru, duration', icon: ScrollText },
   { id: 'allocation', label: 'Allocation d’actifs', description: 'Répartition, capitalisation vs distribution', icon: PieChart },
-  { id: 'immobilier', label: 'Immobilier', description: 'Financement, IFI, démembrement', icon: Building2 },
+  { id: 'immobilier', label: 'Immobilier', description: 'Financement, frais de garantie, IFI, démembrement', icon: Building2 },
   { id: 'entreprise', label: 'Entreprise et dirigeants', description: 'Épargne retraite, levier, nantissement', icon: Briefcase },
 ];
 
@@ -37,6 +37,7 @@ export const SIMULATORS: SimMeta[] = [
   { id: 'cagr', title: 'CAGR', short: 'Performance annualisée entre deux valeurs', categories: ['finance'], sections: ['calculators'], keywords: ['cagr', 'performance annualisee', 'taux de croissance'], icon: LineChart },
   { id: 'net-yield', title: 'Rendement net', short: 'Rendement après frais et fiscalité', categories: ['finance', 'assurance-vie'], sections: ['calculators', 'investments'], keywords: ['rendement net', 'frais', 'fiscalite', 'pfu', 'flat tax'], icon: Percent },
   { id: 'discount', title: 'Actualisation', short: 'Valeur actuelle d’un montant futur', categories: ['finance'], sections: ['calculators'], keywords: ['actualisation', 'valeur actuelle', 'va', 'pv', 'discount'], icon: CalendarClock },
+  { id: 'cat', title: 'Compte à terme', short: 'Intérêts, TRI brut et net, fiscalité particulier ou IS', categories: ['finance', 'entreprise'], sections: ['calculators', 'investments'], keywords: ['cat', 'compte a terme', 'depot a terme', 'dat', 'tresorerie', 'taux progressif', 'is', 'societe'], icon: Coins },
   { id: 'compare', title: 'Comparateur de placements', short: 'Capitaux nets finaux de plusieurs placements', categories: ['finance', 'assurance-vie', 'allocation'], sections: ['calculators', 'investments'], keywords: ['comparateur', 'comparer', 'placements', 'fonds euros', 'cto', 'pea'], icon: GitCompare },
   // B. Fiscalité
   { id: 'ir', title: 'Impôt sur le revenu', short: 'Barème, quotient familial, décote, TMI', categories: ['fiscalite', 'entreprise'], sections: ['calculators'], keywords: ['ir', 'impot', 'revenu', 'tmi', 'quotient familial', 'decote', 'bareme', 'parts', 'cehr'], icon: Percent },
@@ -50,14 +51,13 @@ export const SIMULATORS: SimMeta[] = [
   { id: 'mortgage', title: 'Crédit amortissable', short: 'Mensualité, coût total, tableau d’amortissement', categories: ['credit', 'immobilier'], sections: ['calculators'], keywords: ['credit', 'pret immobilier', 'mensualite', 'amortissement', 'taeg', 'emprunt'], icon: Home },
   { id: 'capacity', title: 'Capacité d’emprunt', short: 'Capital empruntable selon le taux d’effort', categories: ['credit', 'immobilier'], sections: ['calculators'], keywords: ['capacite', 'emprunt', 'endettement', 'hcsf', '35'], icon: Scale },
   { id: 'in-fine', title: 'Crédit in fine', short: 'Intérêts périodiques et placement adossé', categories: ['credit', 'immobilier', 'entreprise'], sections: ['calculators'], keywords: ['in fine', 'credit', 'interets', 'adosse', 'nantissement'], icon: Hourglass },
+  { id: 'guarantee', title: 'Frais de garantie', short: 'Hypothèque conventionnelle ou HLS PD (ex-PPD)', categories: ['credit', 'immobilier'], sections: ['calculators'], keywords: ['garantie', 'hypotheque', 'hls', 'hlspd', 'ppd', 'privilege preteur de deniers', 'frais', 'notaire', 'taxe publicite fonciere', 'pret immobilier'], icon: Shield },
   { id: 'lombard', title: 'Crédit lombard', short: 'Valeur de prêt, LTV et stress de marché', categories: ['credit', 'entreprise'], sections: ['calculators', 'investments'], keywords: ['lombard', 'ltv', 'nantissement', 'credit', 'appel de marge', 'levier', 'portefeuille'], icon: Lock },
   { id: 'pledge', title: 'Nantissement de portefeuille', short: 'Valeur éligible et ratio de couverture', categories: ['credit', 'entreprise'], sections: ['calculators'], keywords: ['nantissement', 'garantie', 'decote', 'haircut', 'couverture'], icon: Layers },
   // D. Obligations & structurés
   { id: 'bond', title: 'Calculateur obligataire', short: 'Rendement actuariel, coupon couru, duration', categories: ['obligations'], sections: ['calculators', 'investments'], keywords: ['obligation', 'bond', 'ytm', 'rendement actuariel', 'coupon couru', 'duration', 'pied de coupon'], icon: ScrollText },
-  { id: 'autocall', title: 'Autocall', short: 'Coupon au rappel, effet mémoire, scénarios', categories: ['structures'], sections: ['calculators', 'investments'], keywords: ['autocall', 'athena', 'structure', 'rappel', 'barriere', 'coupon'], icon: Sparkles },
-  { id: 'phoenix', title: 'Phoenix', short: 'Coupons conditionnels et barrières', categories: ['structures'], sections: ['calculators', 'investments'], keywords: ['phoenix', 'structure', 'coupon conditionnel', 'memoire', 'barriere'], icon: Sparkles },
-  { id: 'reverse-convertible', title: 'Reverse convertible', short: 'Coupon fixe et barrière de protection', categories: ['structures'], sections: ['calculators', 'investments'], keywords: ['reverse convertible', 'rc', 'coupon fixe', 'barriere'], icon: ArrowLeftRight },
-  { id: 'scenarios', title: 'Simulateur de scénarios', short: 'Trajectoire personnalisée par observation', categories: ['structures'], sections: ['calculators', 'investments'], keywords: ['scenario', 'stress', 'trajectoire', 'structure', 'backtest'], icon: BarChart3 },
+  { id: 'structured', title: 'Produits structurés', short: 'Autocall, Phoenix, reverse convertible, capital protégé', categories: ['structures'], sections: ['calculators', 'investments'], keywords: ['structure', 'autocall', 'athena', 'phoenix', 'reverse convertible', 'rc', 'capital protege', 'capital garanti', 'participation', 'rappel', 'barriere', 'coupon', 'memoire'], icon: Sparkles },
+  { id: 'scenarios', title: 'Simulateur de scénarios', short: 'Trajectoire personnalisée ou volatile par observation', categories: ['structures'], sections: ['calculators', 'investments'], keywords: ['scenario', 'stress', 'trajectoire', 'structure', 'backtest', 'volatilite', 'volatil'], icon: BarChart3 },
   // E. Patrimoine & investissement
   { id: 'projection', title: 'Projection patrimoniale', short: 'Patrimoine net à 10, 20 et 30 ans', categories: ['allocation', 'retraite'], sections: ['wealth'], keywords: ['projection', 'patrimoine', 'bilan', 'inflation', 'long terme'], icon: TrendingUp },
   { id: 'allocation', title: 'Allocation d’actifs', short: 'Poids, montants et rééquilibrage', categories: ['allocation'], sections: ['investments'], keywords: ['allocation', 'repartition', 'actions', 'obligations', 'private equity', 'reequilibrage'], icon: PieChart },
@@ -66,7 +66,10 @@ export const SIMULATORS: SimMeta[] = [
   { id: 'cap-vs-dist', title: 'Capitalisation vs distribution', short: 'Effet de la fiscalité sur le réinvestissement', categories: ['allocation', 'assurance-vie'], sections: ['investments'], keywords: ['capitalisation', 'distribution', 'parts c', 'parts d', 'reinvestissement'], icon: Repeat },
 ];
 
-export const getMeta = (id: string) => SIMULATORS.find((s) => s.id === id);
+/** Anciens identifiants (favoris, liens partagés, scénarios enregistrés) redirigés vers le simulateur unique. */
+export const SIM_ALIASES: Record<string, string> = { autocall: 'structured', phoenix: 'structured', 'reverse-convertible': 'structured' };
+export const resolveSimId = (id: string) => SIM_ALIASES[id] ?? id;
+export const getMeta = (id: string) => SIMULATORS.find((s) => s.id === resolveSimId(id));
 export const byCategory = (c: CategoryId) => SIMULATORS.filter((s) => s.categories.includes(c));
 export const bySection = (s: SectionId) => SIMULATORS.filter((x) => x.sections.includes(s));
 export const categoryLabel = (c: CategoryId) => CATEGORIES.find((x) => x.id === c)?.label ?? c;
@@ -95,4 +98,3 @@ export function searchSimulators(q: string): SimMeta[] {
   return scored.filter((x) => x.score > 0).sort((a, b) => b.score - a.score).map((x) => x.s);
 }
 
-export { Coins };

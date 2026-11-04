@@ -155,6 +155,8 @@ export interface CapitalTaxParams {
   socialRealEstate: number;
   /** Taux d'IR du PFU (art. 200 A CGI). */
   pfuIncomeTax: number;
+  /** Fraction de CSG déductible du revenu imposable l'année du paiement en cas d'option pour le barème (art. 154 quinquies CGI). */
+  csgDeductible: number;
   /** Assurance-vie (art. 125-0 A CGI). */
   lifeInsurance: {
     allowanceSingle: number;
@@ -186,7 +188,7 @@ export const CAPITAL_TAX_VERSIONS: Versioned<CapitalTaxParams>[] = [
       lastVerified: VERIFIED,
       status: 'official',
     },
-    params: { socialGeneral: 0.172, socialLifeInsurance: 0.172, socialRealEstate: 0.172, pfuIncomeTax: 0.128, lifeInsurance: LI },
+    params: { socialGeneral: 0.172, socialLifeInsurance: 0.172, socialRealEstate: 0.172, pfuIncomeTax: 0.128, csgDeductible: 0.068, lifeInsurance: LI },
   },
   {
     meta: {
@@ -207,7 +209,82 @@ export const CAPITAL_TAX_VERSIONS: Versioned<CapitalTaxParams>[] = [
         'Revenus du patrimoine (foncier…) : le taux applicable dépend de la catégorie — se référer à l’art. L136-8 IV CSS.',
       ],
     },
-    params: { socialGeneral: 0.186, socialLifeInsurance: 0.172, socialRealEstate: 0.172, pfuIncomeTax: 0.128, lifeInsurance: LI },
+    params: { socialGeneral: 0.186, socialLifeInsurance: 0.172, socialRealEstate: 0.172, pfuIncomeTax: 0.128, csgDeductible: 0.068, lifeInsurance: LI },
+  },
+];
+
+/* ===================== IMPÔT SUR LES SOCIÉTÉS ===================== */
+export interface CorporateTaxParams {
+  /** Taux normal (art. 219, I CGI). */
+  normalRate: number;
+  /** Taux réduit PME (art. 219, I-b CGI). */
+  reducedRate: number;
+  /** Plafond de bénéfice éligible au taux réduit. */
+  reducedCeiling: number;
+}
+export const CORPORATE_TAX_VERSIONS: Versioned<CorporateTaxParams>[] = [
+  {
+    meta: {
+      id: 'FR-IS-2023',
+      jurisdiction: 'FR',
+      label: 'IS 25 % — taux réduit 15 % jusqu’à 42 500 €',
+      effectiveFrom: '2023-01-01',
+      scope: 'Exercices ouverts à compter du 01/01/2023',
+      sources: [{ label: 'Art. 219 CGI', url: 'https://www.legifrance.gouv.fr/codes/article_lc/LEGIARTI000047311069' }],
+      lastVerified: VERIFIED,
+      status: 'official',
+      notes: [
+        'Taux réduit réservé aux PME (CA < 10 M€, capital entièrement libéré et détenu à 75 % au moins par des personnes physiques).',
+        'Contribution sociale de 3,3 % (art. 235 ter ZC) et contributions exceptionnelles des grandes entreprises non modélisées.',
+      ],
+    },
+    params: { normalRate: 0.25, reducedRate: 0.15, reducedCeiling: 42_500 },
+  },
+];
+
+/* ===================== FRAIS DE GARANTIE DE CRÉDIT ===================== */
+export interface GuaranteeParams {
+  /** Taxe de publicité foncière sur l'inscription d'hypothèque conventionnelle : 0,70 % + frais d'assiette 2,14 % = 0,715 %. */
+  publicityTax: number;
+  /** Contribution de sécurité immobilière sur les inscriptions. */
+  csiRate: number;
+  csiMinimum: number;
+  /** Émoluments proportionnels du notaire (barème dégressif, HT). */
+  notaryBrackets: Bracket[];
+  vat: number;
+}
+export const GUARANTEE_VERSIONS: Versioned<GuaranteeParams>[] = [
+  {
+    meta: {
+      id: 'FR-GAR-2025',
+      jurisdiction: 'FR',
+      label: 'Hypothèque conventionnelle et HLS PD',
+      effectiveFrom: '2022-01-01',
+      scope: 'Inscriptions de sûretés immobilières (réforme des sûretés, ord. n° 2021-1192)',
+      sources: [
+        { label: 'Art. 844, 879 et 1647 CGI (TPF, CSI, frais d’assiette)', url: LEGIFRANCE_CGI },
+        { label: 'Art. 2402 C. civ. (hypothèque légale spéciale du prêteur de deniers)', url: 'https://www.legifrance.gouv.fr/codes/article_lc/LEGIARTI000044076339' },
+        { label: 'Code de commerce, tarif réglementé des notaires (art. A444-53 s.)', url: 'https://www.legifrance.gouv.fr/codes/texte_lc/LEGITEXT000005634379' },
+      ],
+      lastVerified: VERIFIED,
+      status: 'to-confirm',
+      notes: [
+        'L’HLS PD (ex-privilège de prêteur de deniers) est exonérée de taxe de publicité foncière ; elle ne garantit que le prix d’un bien existant payé au moyen du prêt.',
+        'Barème des émoluments relevé sur sources secondaires (1,290 % / 0,532 % / 0,355 % / 0,266 %) : à confirmer avec l’état de frais du notaire.',
+      ],
+    },
+    params: {
+      publicityTax: 0.00715,
+      csiRate: 0.0005,
+      csiMinimum: 15,
+      notaryBrackets: [
+        { from: 0, to: 6_500, rate: 0.0129 },
+        { from: 6_500, to: 17_000, rate: 0.00532 },
+        { from: 17_000, to: 60_000, rate: 0.00355 },
+        { from: 60_000, to: null, rate: 0.00266 },
+      ],
+      vat: 0.2,
+    },
   },
 ];
 
@@ -394,5 +471,5 @@ export function pickVersion<T>(versions: Versioned<T>[], atDateISO?: string, id?
 export const latest = <T>(versions: Versioned<T>[]) => pickVersion(versions, '9999-12-31');
 
 export const ALL_RULES = [
-  ...IR_VERSIONS, ...IFI_VERSIONS, ...CAPITAL_TAX_VERSIONS, ...PER_VERSIONS, ...DMTG_VERSIONS, ...DISMEMBERMENT_VERSIONS,
+  ...IR_VERSIONS, ...IFI_VERSIONS, ...CAPITAL_TAX_VERSIONS, ...CORPORATE_TAX_VERSIONS, ...GUARANTEE_VERSIONS, ...PER_VERSIONS, ...DMTG_VERSIONS, ...DISMEMBERMENT_VERSIONS,
 ].map((v) => v.meta);

@@ -8,7 +8,7 @@ import { SectionTitle, Button, Card } from '@/components/ui/primitives';
 import { getMeta, searchSimulators, SIMULATORS, type SimMeta } from '@/simulators/catalog';
 import { useFavorites, useRecents } from '@/lib/store';
 
-const QUICK = ['lombard', 'ir', 'assurance-vie', 'autocall', 'xirr', 'donation', 'mortgage', 'bond'];
+const QUICK = ['lombard', 'ir', 'assurance-vie', 'structured', 'xirr', 'donation', 'mortgage', 'bond'];
 const SHORTCUTS = [
   { label: 'Calculer un impôt', ids: ['ir', 'ifi'] },
   { label: 'Financer', ids: ['lombard', 'mortgage', 'in-fine'] },
@@ -25,7 +25,7 @@ export function HomePage() {
   const results = useMemo(() => searchSimulators(q), [q]);
   const { favorites } = useFavorites();
   const { recents, usage } = useRecents();
-  const metas = (ids: string[]) => ids.map(getMeta).filter(Boolean) as SimMeta[];
+  const metas = (ids: string[]) => (ids.map(getMeta).filter(Boolean) as SimMeta[]).filter((m, k, a) => a.findIndex((x) => x.id === m.id) === k);
   const mostUsed = Object.entries(usage).sort((a, b) => b[1] - a[1]).slice(0, 4).map(([id]) => id);
   const today = new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
 

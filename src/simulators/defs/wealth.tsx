@@ -1,6 +1,7 @@
 import { Plus, Trash2 } from 'lucide-react';
 import { calculatePatrimonialProjection, calculateAllocation, calculateWithdrawalPlan, calculateComplementaryIncome, compareCapitalisationDistribution, ValidationError } from '@/engine';
-import { defineSim, currentPFU } from '../helpers';
+import { defineSim, currentPFU, taxFields, taxDefaults, resolveTax, taxRegimeOptions } from '../helpers';
+import type { FieldDef } from '../types';
 import { money, pct, years as fmtYears } from '@/lib/format';
 import { DonutChart, LineSeriesChart } from '@/components/charts';
 import { Button, Card } from '@/components/ui/primitives';
@@ -141,30 +142,32 @@ export const withdrawal = defineSim('withdrawal', {
 
 export const income = defineSim('income', {
   description: 'Revenu complémentaire net tiré d’un capital investi (distribution, dividendes, SCPI…), et évolution du capital.',
-  defaults: (s) => ({ capital: 1_500_000, totalReturn: 0.05, distributionRate: 0.04, taxRate: currentPFU(), years: 20, inflation: s.inflation }),
+  defaults: (s) => ({ capital: 1_500_000, totalReturn: 0.05, distributionRate: 0.04, years: 20, inflation: s.inflation, ...taxDefaults('pfu') }),
   fields: [
     { kind: 'money', key: 'capital', label: 'Capital investi' },
     { kind: 'percent', key: 'totalReturn', label: 'Rendement total annuel', hint: 'Revenus distribués + valorisation.' },
     { kind: 'percent', key: 'distributionRate', label: 'Taux de distribution annuel' },
-    { kind: 'percent', key: 'taxRate', label: 'Fiscalité des revenus distribués', hint: `PFU ${pct(currentPFU(), 1)} ; revenus fonciers : TMI + 17,2 %.` },
     { kind: 'number', key: 'years', label: 'Horizon', unit: 'ans', integer: true },
     { kind: 'percent', key: 'inflation', label: 'Inflation' },
+    ...taxFields({ group: 'Fiscalité des revenus distribués' }),
   ],
   compute: (v) => {
-    const r = calculateComplementaryIncome(v as never);
+    const t = resolveTax(v, 0);
+    const r = calculateComplementaryIncome({ ...v, taxRate: t.rate } as never);
     return {
       report: {
         headline: { label: 'Revenu net mensuel', value: money(r.netMonthly), tone: 'pos', sub: `${money(r.netAnnual)} nets par an · rendement net distribué ${pct(r.netYield)}` },
         metrics: [
           { label: 'Revenu brut annuel', value: money(r.grossAnnual) },
-          { label: 'Fiscalité annuelle', value: money(r.grossAnnual - r.netAnnual), tone: 'neg' },
+          { label: 'Fiscalité annuelle', value: money(r.grossAnnual - r.netAnnual), tone: 'neg', hint: v.taxRegime !== 'none' ? `${t.label} · ${pct(t.rate, 1)}` : undefined },
           { label: `Revenus nets cumulés sur ${v.years} ans`, value: money(r.totalNet) },
           { label: `Capital à ${v.years} ans`, value: money(r.finalCapital) },
           { label: `Revenu net de l’année ${v.years} (euros constants)`, value: money(r.rows[r.rows.length - 1].realNet) },
         ],
         tables: [{ title: 'Revenus et capital', columns: ['Année', 'Revenu brut', 'Revenu net', 'Net réel', 'Capital'], rows: r.rows.map((x) => [x.year, money(x.gross), money(x.net), money(x.realNet), money(x.capital)]) }],
-        assumptions: ['Distribution = taux × capital en début d’année ; le capital progresse de (rendement total − distribution).', 'Fiscalité appliquée sur l’intégralité des revenus distribués.'],
+        assumptions: ['Distribution = taux × capital en début d’année ; le capital progresse de (rendement total − distribution).', 'Fiscalité appliquée sur l’intégralité des revenus distribués.', `Fiscalité : ${t.note}`, ...(v.taxRegime === 'bareme' ? ['Option barème : abattement de 40 % sur dividendes d’actions non appliqué (revenus de SCPI : revenus fonciers, TMI + 17,2 %).'] : [])],
         warnings: r.warnings,
+        rules: t.ruleIds,
       },
       chart: <LineSeriesChart title="Revenu net annuel" x="year" data={r.rows.map((x) => ({ year: x.year, net: x.net, real: x.realNet }))} series={[{ key: 'net', label: 'Nominal' }, { key: 'real', label: 'Euros constants' }]} />,
     };
@@ -175,18 +178,24 @@ export const income = defineSim('income', {
 
 export const capVsDist = defineSim('cap-vs-dist', {
   description: 'Comparaison d’une part capitalisante et d’une part distribuante : effet de la fiscalité annuelle sur l’intérêt composé.',
-  defaults: () => ({ capital: 1_000_000, totalReturn: 0.06, distributionRate: 0.03, distributionTax: currentPFU(), exitTax: currentPFU(), reinvest: true, years: 15 }),
+  defaults: () => ({ capital: 1_000_000, totalReturn: 0.06, distributionRate: 0.03, distributionTax: currentPFU(), exitTax: currentPFU(), reinvest: true, years: 15, ...taxDefaults('pfu') }),
   fields: [
     { kind: 'money', key: 'capital', label: 'Capital investi' },
     { kind: 'percent', key: 'totalReturn', label: 'Rendement total annuel' },
     { kind: 'percent', key: 'distributionRate', label: 'Taux de distribution (part D)' },
-    { kind: 'percent', key: 'distributionTax', label: 'Fiscalité des distributions' },
-    { kind: 'percent', key: 'exitTax', label: 'Fiscalité de la plus-value à la sortie' },
     { kind: 'toggle', key: 'reinvest', label: 'Réinvestir les distributions nettes' },
     { kind: 'number', key: 'years', label: 'Horizon', unit: 'ans', integer: true, slider: { min: 1, max: 30, step: 1 } },
+    ...capDistTaxFields(),
+    { kind: 'percent', key: 'distributionTax', label: 'Fiscalité des distributions', visibleIf: (v) => v.taxRegime === 'custom' },
+    { kind: 'percent', key: 'exitTax', label: 'Fiscalité de la plus-value à la sortie', visibleIf: (v) => v.taxRegime === 'custom' },
   ],
   compute: (v) => {
-    const r = compareCapitalisationDistribution(v as never);
+    const t = resolveTax(v, v.years);
+    const custom = v.taxRegime === 'custom';
+    // PEA : distributions réinvesties dans le plan sans imposition ; gain global taxé au retrait.
+    const distributionTax = custom ? v.distributionTax : t.exitOnly ? 0 : t.rate;
+    const exitTax = custom ? v.exitTax : t.rate;
+    const r = compareCapitalisationDistribution({ ...v, distributionTax, exitTax } as never);
     return {
       report: {
         headline: { label: 'Avantage de la capitalisation', value: money(r.difference, { sign: true }), tone: r.difference >= 0 ? 'pos' : 'neg', sub: `Capitalisation ${money(r.capitalisationNet)} vs distribution ${money(r.distributionNet)} nets après ${v.years} ans` },
@@ -199,8 +208,9 @@ export const capVsDist = defineSim('cap-vs-dist', {
           ...(!v.reinvest ? [{ label: 'Distributions nettes conservées', value: money(r.cashAccumulated) }] : []),
         ],
         tables: [{ title: 'Valeur nette liquidative après impôt', columns: ['Année', 'Capitalisation', 'Distribution'], rows: r.rows.map((x) => [x.year, money(x.capitalisation), money(x.distribution)]) }],
-        assumptions: ['Même rendement total pour les deux parts.', 'Distributions taxées chaque année ; réinvestissement du net (nouveau prix de revient).', 'Valeurs nettes = valeur − impôt latent de sortie sur la plus-value.'],
+        assumptions: ['Même rendement total pour les deux parts.', 'Distributions taxées chaque année ; réinvestissement du net (nouveau prix de revient).', 'Valeurs nettes = valeur − impôt latent de sortie sur la plus-value.', custom ? `Taux saisis : distributions ${pct(distributionTax, 1)}, plus-value ${pct(exitTax, 1)}.` : `Fiscalité : ${t.note}`, ...(v.taxRegime === 'pea' ? ['PEA : les distributions restent dans le plan sans imposition immédiate — les deux parts aboutissent au même résultat.'] : []), ...(v.taxRegime === 'is' ? ['IS : la part capitalisante d’OPC est en pratique imposée chaque exercice sur l’écart de valeur liquidative (art. 209-0 A CGI), ce qui neutralise une partie de l’avantage affiché.'] : [])],
         warnings: [],
+        rules: custom ? [] : t.ruleIds,
       },
       chart: <LineSeriesChart title="Valeur nette après impôt" x="year" data={r.rows} series={[{ key: 'capitalisation', label: 'Capitalisation' }, { key: 'distribution', label: 'Distribution' }]} />,
     };
@@ -208,5 +218,9 @@ export const capVsDist = defineSim('cap-vs-dist', {
   formula: ['Cap : C(1+r)ⁿ − t_s × PV', 'Dist : V_{t+1} = V_t(1 + r) − d·V_t + (1 − t_d)·d·V_t'],
   example: 'Sans fiscalité, les deux parts aboutissent au même capital ; la capitalisation l’emporte dès que les distributions sont taxées.',
 });
+
+function capDistTaxFields(): FieldDef[] {
+  return taxFields({ pea: true, custom: false }).map((f) => (f.kind === 'select' && f.key === 'taxRegime' ? { ...f, options: taxRegimeOptions({ pea: true }) } : f));
+}
 
 export const wealthSims = [projection, allocation, withdrawal, income, capVsDist];

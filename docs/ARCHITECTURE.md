@@ -11,14 +11,14 @@ Composants UI écrits dans l’esprit shadcn/ui (primitives Tailwind locales, sa
 src/
   engine/                 Moteur de calcul — pur TypeScript, aucune dépendance UI
     core/                 errors (ValidationError, safeCalc), math (arrondis, barèmes), dates (UTC, 30/360), solver (Newton + bissection)
-    finance/              investment (capitalisation commune), xirr (+CAGR, actualisation), netYield (+comparateur)
+    finance/              investment (capitalisation commune), xirr (+CAGR, actualisation), netYield (+comparateur), termDeposit (CAT)
     tax/
       types.ts            Métadonnées de règle : juridiction, date d’effet, sources, date de vérification, statut
       fr/rules.ts         TOUS les paramètres fiscaux français, versionnés
-      fr/*.ts             ir, ifi, assuranceVie, per, dmtg (donation, démembrement), succession
-    credit/               loans (amortissable, capacité, in fine), lombard (+ nantissement)
+      fr/*.ts             ir, ifi, assuranceVie, per, dmtg (donation, démembrement), succession, investmentTax (PFU, barème, PEA, IS)
+    credit/               loans (amortissable, capacité, in fine), lombard (+ nantissement), guarantee (hypothèque, HLS PD)
     bonds/                bond (prix/rendement, coupon couru, duration, convexité)
-    structured/           moteur de payoff paramétrique (Autocall, Phoenix, Reverse convertible)
+    structured/           moteur de payoff paramétrique (Autocall, Phoenix, Reverse convertible, capital protégé), trajectoire volatile, fiscalité des flux
     wealth/               projection, allocation, rente, revenus, capitalisation vs distribution
     __tests__/            tests de référence indépendants
   simulators/
@@ -47,10 +47,12 @@ src/
 | Obligations | convention « street » d’Excel PRICE/YIELD ; ACT/ACT ICMA, ACT/365, ACT/360, 30/360 US. |
 | Arrondis | calcul en pleine précision ; arrondi à l’euro des impôts (art. 1657 CGI) ; arrondi à l’affichage sinon. |
 | Dates | UTC, format ISO ; ajout de mois avec conservation de la fin de mois. |
-| Structurés | niveaux en % du niveau initial ; paiement à la date d’observation ; barrière américaine approchée aux dates d’observation. |
+| Structurés | niveaux en % du niveau initial ; paiement à la date d’observation ; barrière américaine approchée aux dates d’observation. Trajectoire volatile : marche log-normale (graine reproductible) transformée en pont brownien calé sur la performance cible. |
+| Fiscalité des placements | PFU = 12,8 % + PS ; barème = TMI + PS − TMI × 6,8 % (CSG déductible) ; PEA : PFU avant 5 ans, PS seuls après, imposition au retrait ; IS 25 % / 15 % sans PS ; CAT à l’IS : intérêts courus imposés par exercice. |
+| Garanties | sommes garanties = capital × (1 + accessoires) ; TPF 0,715 % (hypothèque seulement) ; CSI 0,05 % ; émoluments notariaux dégressifs + TVA. |
 
 ## Tests
-`npm test` : 142 tests dont références externes (Excel XIRR, PRICE, YIELD), calculs fiscaux posés à la main (IR avec décote et plafonnement QF, IFI avec décote et limitation des dettes, droits de donation avec rappel fiscal, succession, assurance-vie avant/après 2017 et seuil de 150 000 €), et un test de non-régression qui exécute chaque fiche avec ses valeurs par défaut.
+`npm test` : 170 tests dont références externes (Excel XIRR, PRICE, YIELD), calculs fiscaux posés à la main (IR avec décote et plafonnement QF, IFI avec décote et limitation des dettes, droits de donation avec rappel fiscal, succession, assurance-vie avant/après 2017 et seuil de 150 000 €), CAT, frais de garantie, régimes fiscaux des placements, et un test de non-régression qui exécute chaque fiche avec ses valeurs par défaut et sous chaque régime fiscal.
 
 ## Limites connues (signalées dans l’application)
 - **IR** : revenu net imposable saisi directement ; réductions/crédits d’impôt, CDHR, lissage de la CEHR, réduction complémentaire des veufs non modélisés.
@@ -58,6 +60,8 @@ src/
 - **PER** : plafond estimé hors reliquats N-3 et mutualisation ; sortie imposée au TMI saisi ; taux de conversion en rente fourni par l’utilisateur.
 - **Succession** : dévolution légale uniquement (pas de testament, donation au dernier vivant, assurance-vie hors succession, représentation, ascendants ordinaires).
 - **IFI** : abattement annuel des prêts in fine et réductions IFI-dons non modélisés.
-- **Structurés** : pas de valorisation de marché (pas de modèle stochastique), ni risque émetteur, frais ou fiscalité.
+- **Structurés** : pas de valorisation de marché (pas de modèle de pricing), ni risque émetteur ni frais ; fiscalité simplifiée (moins-values non imputées).
+- **Fiscalité des placements** : abattements spécifiques (40 % dividendes, durée de détention) et contribution sociale IS de 3,3 % non modélisés.
+- **Frais de garantie** : barème des émoluments notariaux relevé sur sources secondaires (statut « à confirmer ») ; frais de mainlevée non inclus.
 - **Entreprise et dirigeants** : arbitrage rémunération/dividendes, Dutreil, 150-0 B ter non développés — ils nécessitent un moteur de cotisations sociales fiable.
 - Barème IR 2026 et taux de PS 2026 : statut « recoupé » (sources secondaires + BOFiP) à confirmer sur la brochure officielle.

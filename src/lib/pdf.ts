@@ -34,6 +34,11 @@ export async function exportPDF(doc: ReportDoc) {
   const GOLD: [number, number, number] = [197, 164, 109];
   const GREY: [number, number, number] = [110, 121, 136];
 
+  const H = pdf.internal.pageSize.getHeight();
+  const CONTENT_W = W - 2 * M;
+  const BOTTOM = 64; // réserve pour le pied de page (avertissement + pagination)
+  const LIMIT = H - BOTTOM;
+
   // En-tête
   pdf.setFillColor(...NIGHT);
   pdf.rect(0, 0, W, 86, 'F');
@@ -43,7 +48,7 @@ export async function exportPDF(doc: ReportDoc) {
   pdf.text('PRIVATE BANKER TOOLKIT', M, 30);
   pdf.setTextColor(255, 255, 255);
   pdf.setFontSize(18);
-  pdf.text(pdfSafe(doc.title), M, 56);
+  pdf.text(pdf.splitTextToSize(pdfSafe(doc.title), CONTENT_W)[0], M, 56);
   pdf.setFont('helvetica', 'normal');
   pdf.setFontSize(9);
   pdf.setTextColor(200, 205, 214);
@@ -52,7 +57,7 @@ export async function exportPDF(doc: ReportDoc) {
   let y = 112;
   pdf.setTextColor(...GREY);
   pdf.setFontSize(9);
-  pdf.text(pdfSafe(doc.report.headline.label.toUpperCase()), M, y);
+  pdf.text(pdf.splitTextToSize(pdfSafe(doc.report.headline.label.toUpperCase()), CONTENT_W), M, y);
   y += 26;
   pdf.setTextColor(...NIGHT);
   pdf.setFont('helvetica', 'bold');
@@ -63,51 +68,110 @@ export async function exportPDF(doc: ReportDoc) {
     pdf.setFont('helvetica', 'normal');
     pdf.setFontSize(10);
     pdf.setTextColor(...GREY);
-    pdf.text(pdfSafe(doc.report.headline.sub), M, y);
+    const lines: string[] = pdf.splitTextToSize(pdfSafe(doc.report.headline.sub), CONTENT_W);
+    pdf.text(lines, M, y);
+    y += (lines.length - 1) * 12;
   }
-  y += 18;
+  y += 26;
 
+  type Align = 'left' | 'right';
   const tableTheme = {
     theme: 'plain' as const,
-    styles: { font: 'helvetica', fontSize: 9, cellPadding: 5, textColor: NIGHT, lineColor: [223, 228, 235] as [number, number, number], lineWidth: { bottom: 0.5 } },
+    styles: { font: 'helvetica', fontSize: 9, cellPadding: { top: 4, bottom: 4, left: 5, right: 5 }, valign: 'middle' as const, overflow: 'linebreak' as const, textColor: NIGHT, lineColor: [223, 228, 235] as [number, number, number], lineWidth: { bottom: 0.5 } },
     headStyles: { fontStyle: 'bold' as const, textColor: GREY, fontSize: 8 },
-    margin: { left: M, right: M },
+    margin: { left: M, right: M, top: 50, bottom: BOTTOM },
+    tableWidth: CONTENT_W,
+  };
+  /** Aligne les en-têtes de colonnes sur l'alignement des données (sinon en-têtes à gauche, chiffres à droite). */
+  const alignHead = (aligns: Align[]) => (data: { section: string; column: { index: number }; cell: { styles: { halign?: string } } }) => {
+    if (data.section === 'head') data.cell.styles.halign = aligns[data.column.index] ?? 'left';
   };
   const section = (title: string) => {
     const last = (pdf as unknown as { lastAutoTable?: { finalY: number } }).lastAutoTable;
     y = Math.max(y, last ? last.finalY + 22 : y);
-    if (y > 760) { pdf.addPage(); y = 50; }
+    if (y > LIMIT - 60) { pdf.addPage(); y = 50; }
     pdf.setFont('helvetica', 'bold');
     pdf.setFontSize(10);
     pdf.setTextColor(...GOLD);
     pdf.text(pdfSafe(title.toUpperCase()), M, y);
     y += 6;
   };
+  /** Tableau libellé / valeur à largeurs fixes : toutes les sections clé-valeur sont alignées sur la même colonne. */
+  const keyValue = (rows: string[][], boldValue: boolean) => {
+    autoTable(pdf, {
+      ...tableTheme,
+      startY: y,
+      body: rows,
+      columnStyles: { 0: { cellWidth: CONTENT_W * 0.6 }, 1: { cellWidth: CONTENT_W * 0.4, halign: 'right', fontStyle: boldValue ? 'bold' : 'normal' } },
+    });
+  };
 
   section('Résultats');
-  autoTable(pdf, { ...tableTheme, startY: y, body: doc.report.metrics.map((m) => [pdfSafe(m.label), pdfSafe(m.value)]), columnStyles: { 1: { halign: 'right', fontStyle: 'bold' } } });
+  keyValue(doc.report.metrics.map((m) => [pdfSafe(m.label), pdfSafe(m.value)]), true);
+
+  /**
+   * Largeurs de colonnes communes à tous les tableaux de même structure (mêmes en-têtes) :
+   * les tableaux successifs (ex. observations par scénario) restent alignés colonne par colonne.
+   */
+  const fontFor = (n: number) => (n > 8 ? 6.5 : n > 5 ? 7.5 : 8.5);
+  const widthsBySignature = new Map<string, number[]>();
+  for (const t of doc.report.tables ?? []) {
+    const sig = t.columns.join('|');
+    const n = t.columns.length;
+    const pad = n > 8 ? 6 : 10;
+    pdf.setFont('helvetica', 'bold');
+    pdf.setFontSize(fontFor(n));
+    const prev = widthsBySignature.get(sig) ?? t.columns.map((c) => pdf.getTextWidth(pdfSafe(c)) + pad);
+    pdf.setFont('helvetica', 'normal');
+    const w = prev.map((x, k) => Math.max(x, ...t.rows.map((r) => pdf.getTextWidth(pdfSafe(String(r[k] ?? ''))) + pad)));
+    widthsBySignature.set(sig, w);
+  }
+  const columnWidths = (sig: string) => {
+    const w = widthsBySignature.get(sig)!;
+    const total = w.reduce((a, b) => a + b, 0);
+    if (total <= CONTENT_W) {
+      // Espace restant réparti proportionnellement
+      return w.map((x) => (x / total) * CONTENT_W);
+    }
+    // Trop large : colonnes plafonnées, la plus longue (texte) passe à la ligne
+    const cap = CONTENT_W / w.length;
+    const small = w.filter((x) => x <= cap).reduce((a, b) => a + b, 0);
+    const bigTotal = w.filter((x) => x > cap).reduce((a, b) => a + b, 0);
+    return w.map((x) => (x <= cap ? x : (x / bigTotal) * (CONTENT_W - small)));
+  };
 
   for (const t of doc.report.tables ?? []) {
     section(t.title);
+    const aligns: Align[] = t.columns.map((_, k) => t.align?.[k] ?? (k === 0 ? 'left' : 'right'));
+    const n = t.columns.length;
+    const widths = columnWidths(t.columns.join('|'));
     autoTable(pdf, {
       ...tableTheme,
       startY: y,
       head: [t.columns.map(pdfSafe)],
       body: t.rows.map((r) => r.map((c) => pdfSafe(String(c)))),
-      columnStyles: Object.fromEntries(t.columns.map((_, k) => [k, { halign: (t.align?.[k] ?? (k === 0 ? 'left' : 'right')) as 'left' | 'right' }])),
-      styles: { ...tableTheme.styles, fontSize: t.columns.length > 5 ? 7.5 : 8.5 },
+      columnStyles: Object.fromEntries(aligns.map((a, k) => [k, { halign: a, cellWidth: widths[k] }])),
+      styles: { ...tableTheme.styles, fontSize: fontFor(n), cellPadding: n > 8 ? { top: 3, bottom: 3, left: 3, right: 3 } : tableTheme.styles.cellPadding },
+      headStyles: { ...tableTheme.headStyles, fontSize: n > 8 ? 6.5 : 8 },
+      didParseCell: alignHead(aligns),
     });
   }
 
   section('Hypothèses saisies');
-  autoTable(pdf, { ...tableTheme, startY: y, body: doc.inputs.map((i) => [pdfSafe(i.label), pdfSafe(i.value)]), columnStyles: { 1: { halign: 'right' } } });
+  keyValue(doc.inputs.map((i) => [pdfSafe(i.label), pdfSafe(i.value)]), false);
 
   const bullets = (title: string, items: string[]) => {
     if (!items.length) return;
     section(title);
-    autoTable(pdf, { ...tableTheme, startY: y, body: items.map((a) => ['•', pdfSafe(a)]), columnStyles: { 0: { cellWidth: 12 } }, styles: { ...tableTheme.styles, lineWidth: 0 } });
+    autoTable(pdf, {
+      ...tableTheme,
+      startY: y,
+      body: items.map((a) => ['•', pdfSafe(a)]),
+      columnStyles: { 0: { cellWidth: 16, halign: 'center', valign: 'top' }, 1: { cellWidth: CONTENT_W - 16, valign: 'top' } },
+      styles: { ...tableTheme.styles, lineWidth: 0, cellPadding: { top: 3, bottom: 3, left: 4, right: 4 } },
+    });
   };
-  bullets('Méthode et hypothèses de calcul', doc.report.assumptions);
+  bullets('Méthode et hypothèses de calcul', doc.report.assumptions.filter(Boolean));
   bullets('Points d’attention', doc.report.warnings);
   const rules = rulesFor(doc.report.rules);
   bullets('Barèmes et sources', rules.map((r) => `${r.label} — ${r.scope} — vérifié le ${dateFR(r.lastVerified)} — ${r.sources.map((s) => s.label).join(' ; ')}`));
@@ -120,8 +184,10 @@ export async function exportPDF(doc: ReportDoc) {
     pdf.setFontSize(7);
     pdf.setTextColor(...GREY);
     const disc = pdf.splitTextToSize(pdfSafe(doc.fiscal ? DISCLAIMER_FISCAL : DISCLAIMER_INVEST), W - 2 * M - 40);
-    pdf.text(disc, M, 806);
-    pdf.text(`${p} / ${pages}`, W - M, 806, { align: 'right' });
+    pdf.setDrawColor(223, 228, 235);
+    pdf.line(M, H - 48, W - M, H - 48);
+    pdf.text(disc, M, H - 36);
+    pdf.text(`${p} / ${pages}`, W - M, H - 36, { align: 'right' });
   }
   const name = `${doc.title.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-zA-Z0-9]+/g, '-').toLowerCase()}-${new Date().toISOString().slice(0, 10)}.pdf`;
   pdf.save(name);

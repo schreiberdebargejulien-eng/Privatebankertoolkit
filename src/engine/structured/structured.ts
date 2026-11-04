@@ -18,6 +18,7 @@ import { solveRoot } from '../core/solver';
  *  - Remboursement anticipé : si k ≥ 1re date de rappel et niveau ≥ barrière de rappel_k
  *    (barrière éventuellement dégressive : barrière − k_rappel × pas).
  *  - Fixe (Reverse convertible) : coupon garanti à chaque période, aucun rappel.
+ *  - Capital protégé : coupon fixe éventuel ; à l'échéance capital × max(protection, min(1 + participation × (S_N − 1), plafond)).
  * À l'échéance (si pas de rappel) :
  *  - niveau ≥ barrière de protection (européenne) ou barrière jamais franchie (américaine,
  *    approximée par les niveaux du scénario aux dates d'observation) → 100 % du capital ;
@@ -25,7 +26,7 @@ import { solveRoot } from '../core/solver';
  * Risque de crédit de l'émetteur, frais, fiscalité et valeur de marché en cours de vie : non modélisés.
  */
 export const structuredSchema = z.object({
-  productType: z.enum(['autocall', 'phoenix', 'reverse-convertible']),
+  productType: z.enum(['autocall', 'phoenix', 'reverse-convertible', 'capital-protected']),
   capital: z.number().positive('Capital investi requis'),
   issueDate: z.string().refine(isValidISO, 'Date d’émission invalide'),
   underlying: z.string().max(60).default(''),
@@ -42,6 +43,12 @@ export const structuredSchema = z.object({
   protectionBarrier: z.number().min(0).max(1.5),
   barrierType: z.enum(['european', 'american']).default('european'),
   strike: z.number().positive().max(2).default(1),
+  /** Capital protégé : niveau de protection du capital à l'échéance (1 = 100 %). */
+  protectionLevel: z.number().min(0).max(1.2).default(1),
+  /** Capital protégé : taux de participation à la hausse du sous-jacent. */
+  participation: z.number().min(0).max(5).default(1),
+  /** Capital protégé : plafond de remboursement (0 = sans plafond), en % du capital. */
+  cap: z.number().min(0).max(5).default(0),
 });
 export type StructuredInput = z.input<typeof structuredSchema>;
 export type StructuredProduct = z.infer<typeof structuredSchema>;
@@ -102,14 +109,14 @@ export function runStructured(raw: StructuredInput, path: number[], label = 'Sc�
     const level = path[k];
     if (level < p.protectionBarrier) barrierBreached = true;
     const isLast = idx === N;
-    const callable = p.productType !== 'reverse-convertible' && idx >= p.firstCallObservation;
+    const callable = p.productType !== 'reverse-convertible' && p.productType !== 'capital-protected' && idx >= p.firstCallObservation;
     const callBarrier = callable ? Math.max(0, p.autocallBarrier - p.autocallStepDown * (idx - p.firstCallObservation)) : null;
     let coupon = 0;
     let event = '';
     let autocalled = false;
     let capital = 0;
 
-    if (p.productType === 'reverse-convertible') {
+    if (p.productType === 'reverse-convertible' || (p.productType === 'capital-protected' && cpn > 0)) {
       coupon = cpn;
       event = 'Coupon fixe';
     } else if (p.productType === 'phoenix') {
@@ -133,6 +140,13 @@ export function runStructured(raw: StructuredInput, path: number[], label = 'Sc�
         event = (event ? event + ' · ' : '') + 'Rappel anticipé';
       }
       if (isLast) event = event.replace('Rappel anticipé', 'Remboursement à l’échéance');
+    } else if (isLast && p.productType === 'capital-protected') {
+      const perf = 1 + p.participation * (level - 1);
+      const capped = p.cap > 0 ? Math.min(perf, p.cap) : perf;
+      const redemption = Math.max(p.protectionLevel, capped);
+      capital = p.capital * redemption;
+      const label = redemption > p.protectionLevel + 1e-12 ? `Participation : remboursement à ${Math.round(redemption * 1000) / 10} %` : `Protection : remboursement à ${Math.round(p.protectionLevel * 1000) / 10} %`;
+      event = (event ? event + ' · ' : '') + label;
     } else if (isLast) {
       if (p.productType === 'autocall' && level >= p.couponBarrier) {
         coupon = p.memory ? cpn * idx : cpn;
@@ -203,6 +217,73 @@ export type PathShape = 'linear' | 'immediate';
  */
 export function buildPath(perf: number, n: number, shape: PathShape): number[] {
   return Array.from({ length: n }, (_, k) => (shape === 'immediate' ? 1 + perf : 1 + (perf * (k + 1)) / n));
+}
+
+/** Générateur pseudo-aléatoire déterministe (mulberry32) : même graine → même trajectoire. */
+export function seededRandom(seed: number) {
+  let a = (Math.floor(seed) >>> 0) || 1;
+  return () => {
+    a = (a + 0x6d2b79f5) >>> 0;
+    let t = a;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+/**
+ * Trajectoire volatile calée sur une performance cible à l'échéance :
+ * marche aléatoire log-normale de volatilité annuelle σ (pas Δt = 1 / fréquence),
+ * transformée en pont brownien pour que le niveau final soit exactement 1 + cible :
+ *   X_k = Σ σ√Δt·ε_i ;  L_k = X_k − (k/N)·X_N + (k/N)·ln(1 + cible) ;  S_k = exp(L_k).
+ */
+export function buildVolatilePath(target: number, volatility: number, n: number, observationsPerYear: number, seed = 1): number[] {
+  if (!(target > -1)) throw new ValidationError(['La performance cible doit être supérieure à −100 %']);
+  if (volatility < 0 || volatility > 2) throw new ValidationError(['Volatilité comprise entre 0 % et 200 %']);
+  const rnd = seededRandom(seed);
+  const gauss = () => {
+    const u = Math.max(rnd(), 1e-12);
+    const v = rnd();
+    return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
+  };
+  const sd = volatility * Math.sqrt(1 / observationsPerYear);
+  const x: number[] = [];
+  let acc = 0;
+  for (let k = 0; k < n; k++) { acc += sd * gauss(); x.push(acc); }
+  const xN = x[n - 1] ?? 0;
+  const lnT = Math.log(1 + target);
+  return x.map((xk, k) => {
+    const w = (k + 1) / n;
+    return Math.round(Math.exp(xk - w * xN + w * lnT) * 10000) / 10000;
+  });
+}
+
+/**
+ * Fiscalité d'un scénario de produit structuré :
+ *  - imposition « au fil de l'eau » : chaque coupon est taxé à son versement, la plus-value
+ *    éventuelle au remboursement ; moins-value non imputée (imputable sur d'autres plus-values) ;
+ *  - imposition « à la sortie » (enveloppe PEA) : gain global taxé au remboursement.
+ */
+export function taxStructuredScenario(s: ScenarioResult, capital: number, observationsPerYear: number, rate: number, exitOnly: boolean) {
+  const flows: { t: number; a: number }[] = [];
+  let tax = 0;
+  for (const r of s.rows) {
+    const t = r.index / observationsPerYear;
+    let tx = 0;
+    if (!exitOnly) {
+      tx = r.coupon * rate + Math.max(0, r.capitalRedeemed - capital) * rate;
+    } else if (r === s.rows[s.rows.length - 1]) {
+      tx = Math.max(0, s.totalReceived - capital) * rate;
+    }
+    tax += tx;
+    flows.push({ t, a: r.coupon + r.capitalRedeemed - tx });
+  }
+  const netReceived = s.totalReceived - tax;
+  let netIRR = -1;
+  if (netReceived > 0) {
+    try { netIRR = solveRoot((x) => flows.reduce((acc, f) => acc + f.a / Math.pow(1 + x, f.t), 0) - capital, { guess: 0.04, lo: -0.9999, hi: 10 }).root; } catch { netIRR = NaN; }
+  }
+  return { tax, netReceived, netGain: netReceived - capital, netIRR };
 }
 
 export function calculateAutocall(raw: StructuredInput, shape: PathShape = 'linear', scenarios = STANDARD_SCENARIOS) {

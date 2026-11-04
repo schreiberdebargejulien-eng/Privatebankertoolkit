@@ -27,6 +27,7 @@ export function moneyCents(v: number) { return money(v, { cents: true }); }
 
 export function pct(v: number | null | undefined, digits = 2, sign = false) {
   if (v === null || v === undefined || !Number.isFinite(v)) return '—';
+  if (Math.abs(v) < 0.5 * Math.pow(10, -(digits + 2))) v = 0; // évite « −0,00 % »
   return nf({ style: 'percent', minimumFractionDigits: digits, maximumFractionDigits: digits, signDisplay: sign ? 'exceptZero' : 'auto' }).format(v);
 }
 export function num(v: number | null | undefined, digits = 2) {
