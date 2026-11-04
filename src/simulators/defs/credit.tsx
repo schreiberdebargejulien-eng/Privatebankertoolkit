@@ -1,24 +1,77 @@
 import { Plus, Trash2 } from 'lucide-react';
-import { calculateAmortization, calculateLoanCapacity, calculateInFine, calculateLombard, calculatePledge, DEFAULT_LOMBARD_CLASSES, ValidationError } from '@/engine';
+import { calculateAmortization, calculateGuarantee, type GuaranteeResult, calculateLoanCapacity, calculateInFine, calculateLombard, calculatePledge, DEFAULT_LOMBARD_CLASSES, ValidationError } from '@/engine';
 import { defineSim } from '../helpers';
 import { money, pct, num } from '@/lib/format';
 import { BarSeriesChart, LineSeriesChart } from '@/components/charts';
 import { Badge, Button, Card } from '@/components/ui/primitives';
 import { NumberInput, TextInput } from '@/components/ui/fields';
+import type { FieldDef, Values } from '../types';
+
+/* ------------------------------ Garanties ------------------------------ */
+const GUARANTEE_DEFAULTS = { guaranteeType: 'hlspd', hlspdAmount: 600_000, accessoryRate: 0.2, formalities: 500, guaranteeManual: 0 };
+const GUARANTEE_OPTIONS = [
+  { value: 'hlspd', label: 'HLS PD (ex-privilège de prêteur de deniers)' },
+  { value: 'hypotheque', label: 'Hypothèque conventionnelle' },
+  { value: 'mixte', label: 'Mixte : HLS PD + hypothèque' },
+  { value: 'manual', label: 'Caution ou montant saisi' },
+  { value: 'none', label: 'Aucune garantie' },
+];
+const isMortgageGuarantee = (v: Values) => ['hlspd', 'hypotheque', 'mixte'].includes(v.guaranteeType);
+function guaranteeFields(): FieldDef[] {
+  return [
+    { kind: 'group', label: 'Garantie du prêt' },
+    { kind: 'select', key: 'guaranteeType', label: 'Type de garantie', options: GUARANTEE_OPTIONS, hint: 'HLS PD : uniquement pour la part du prêt finançant le prix d’un bien existant.' },
+    { kind: 'money', key: 'hlspdAmount', label: 'Part du prêt couverte par l’HLS PD', visibleIf: (v) => v.guaranteeType === 'mixte', hint: 'Prix du bien existant financé ; le solde (travaux, frais) est garanti par hypothèque.' },
+    { kind: 'percent', key: 'accessoryRate', label: 'Accessoires garantis', digits: 0, visibleIf: isMortgageGuarantee, hint: 'Usuellement 20 % du capital (intérêts, frais, indemnités).' },
+    { kind: 'money', key: 'formalities', label: 'Formalités et débours', visibleIf: isMortgageGuarantee },
+    { kind: 'money', key: 'guaranteeManual', label: 'Coût de la garantie', visibleIf: (v) => v.guaranteeType === 'manual', hint: 'Ex. caution Crédit Logement : commission + participation au fonds mutuel (partiellement restituable).' },
+  ];
+}
+const GT_LABEL: Record<string, string> = { hlspd: 'HLS PD', hypotheque: 'Hypothèque conventionnelle', mixte: 'HLS PD + hypothèque' };
+function loanGuarantee(v: Values): { cost: number; label: string; detail?: GuaranteeResult; note: string; warnings: string[] } {
+  if (isMortgageGuarantee(v)) {
+    const d = calculateGuarantee({ principal: v.principal, type: v.guaranteeType, hlspdAmount: v.hlspdAmount, accessoryRate: v.accessoryRate, formalities: v.formalities });
+    return {
+      cost: d.total, label: GT_LABEL[v.guaranteeType], detail: d,
+      note: `Garantie : ${GT_LABEL[v.guaranteeType]} sur ${money(d.securedAmount)} de sommes garanties (capital + ${pct(v.accessoryRate, 0)} d’accessoires) ; TPF 0,715 % ${v.guaranteeType === 'hlspd' ? 'non due (exonération HLS PD)' : v.guaranteeType === 'mixte' ? 'sur la seule part hypothécaire' : 'due'}, CSI 0,05 %, émoluments du notaire + TVA, formalités.`,
+      warnings: ['Frais de mainlevée non inclus (dus en cas de revente avant le terme) ; montant définitif fixé par l’état de frais du notaire.'],
+    };
+  }
+  if (v.guaranteeType === 'manual') return { cost: v.guaranteeManual ?? 0, label: 'Montant saisi', note: 'Garantie : coût saisi (caution ou autre).', warnings: [] };
+  return { cost: 0, label: 'Aucune', note: 'Aucune garantie prise en compte.', warnings: [] };
+}
+function guaranteeTable(list: [string, GuaranteeResult][]) {
+  return {
+    title: 'Détail des frais de garantie',
+    columns: ['Poste', ...list.map((x) => x[0])],
+    rows: [
+      ['Sommes garanties', ...list.map((x) => money(x[1].securedAmount))],
+      ['Taxe de publicité foncière', ...list.map((x) => money(x[1].publicityTax))],
+      ['Contribution de sécurité immobilière', ...list.map((x) => money(x[1].csi))],
+      ['Émoluments du notaire (HT)', ...list.map((x) => money(x[1].notaryFeesHT))],
+      ['TVA sur émoluments', ...list.map((x) => money(x[1].vat))],
+      ['Formalités et débours', ...list.map((x) => money(x[1].formalities))],
+      ['Total', ...list.map((x) => money(x[1].total))],
+      ['En % du capital', ...list.map((x) => pct(x[1].ratio, 2))],
+    ],
+  };
+}
 
 export const mortgage = defineSim('mortgage', {
   description: 'Mensualité constante, coût total, TAEG approché et tableau d’amortissement.',
-  defaults: () => ({ principal: 800_000, annualRate: 0.034, years: 20, insuranceRate: 0.002, insuranceBasis: 'initial', fees: 2_500 }),
+  defaults: () => ({ principal: 800_000, annualRate: 0.034, years: 20, insuranceRate: 0.002, insuranceBasis: 'initial', fees: 1_000, ...GUARANTEE_DEFAULTS }),
   fields: [
     { kind: 'money', key: 'principal', label: 'Montant emprunté', slider: { min: 50_000, max: 3_000_000, step: 10_000 } },
     { kind: 'percent', key: 'annualRate', label: 'Taux nominal annuel', slider: { min: 0, max: 7, step: 0.05 } },
     { kind: 'number', key: 'years', label: 'Durée', unit: 'ans', slider: { min: 5, max: 30, step: 1 } },
     { kind: 'percent', key: 'insuranceRate', label: 'Assurance emprunteur (taux annuel)', digits: 3 },
     { kind: 'segmented', key: 'insuranceBasis', label: 'Assiette de l’assurance', options: [{ value: 'initial', label: 'Capital initial' }, { value: 'outstanding', label: 'Capital restant dû' }] },
-    { kind: 'money', key: 'fees', label: 'Frais de dossier et garantie' },
+    { kind: 'money', key: 'fees', label: 'Frais de dossier' },
+    ...guaranteeFields(),
   ],
   compute: (v) => {
-    const r = calculateAmortization(v as never);
+    const g = loanGuarantee(v);
+    const r = calculateAmortization({ ...v, fees: v.fees + g.cost } as never);
     return {
       report: {
         headline: { label: 'Mensualité assurance comprise', value: money(r.paymentWithInsurance, { cents: true }), sub: `${r.months} mensualités · coût total ${money(r.totalCost)}` },
@@ -27,17 +80,20 @@ export const mortgage = defineSim('mortgage', {
           { label: 'Assurance mensuelle (1re échéance)', value: money(r.monthlyInsurance, { cents: true }) },
           { label: 'Coût des intérêts', value: money(r.totalInterest), tone: 'neg' },
           { label: 'Coût de l’assurance', value: money(r.totalInsurance), tone: 'neg' },
-          { label: 'Frais', value: money(v.fees) },
+          { label: 'Frais de dossier', value: money(v.fees) },
+          { label: 'Frais de garantie', value: money(g.cost), hint: g.label },
           { label: 'Coût total du crédit', value: money(r.totalCost), tone: 'neg' },
           { label: 'Total remboursé', value: money(r.totalPaid) },
-          { label: 'TAEG approché', value: pct(r.taeg, 2), hint: 'Méthode actuarielle, hors frais de garantie non saisis' },
+          { label: 'TAEG approché', value: pct(r.taeg, 2), hint: 'Méthode actuarielle, frais de dossier et de garantie inclus' },
         ],
         tables: [
+          ...(g.detail ? [guaranteeTable([[g.label, g.detail]])] : []),
           { title: 'Amortissement annuel', columns: ['Année', 'Intérêts', 'Capital', 'Assurance', 'Restant dû'], rows: r.yearly.map((y) => [y.year, money(y.interest), money(y.principal), money(y.insurance), money(y.balance)]) },
           { title: 'Tableau d’amortissement mensuel', columns: ['Mois', 'Échéance', 'Intérêts', 'Capital', 'Restant dû'], rows: r.rows.map((x) => [x.period, money(x.payment + x.insurance, { cents: true }), money(x.interest, { cents: true }), money(x.principal, { cents: true }), money(x.balance)]), maxRowsInline: 12 },
         ],
-        assumptions: ['Taux périodique proportionnel : taux annuel / 12.', 'Mensualité constante : M = C × i / (1 − (1 + i)^−n).', 'Dernière échéance ajustée pour solder exactement le capital.'],
-        warnings: [],
+        assumptions: ['Taux périodique proportionnel : taux annuel / 12.', 'Mensualité constante : M = C × i / (1 − (1 + i)^−n).', 'Dernière échéance ajustée pour solder exactement le capital.', g.note],
+        warnings: g.warnings,
+        rules: g.detail ? [g.detail.ruleId] : [],
       },
       chart: <BarSeriesChart title="Répartition annuelle des échéances" stacked x="year" data={r.yearly.map((y) => ({ year: y.year, principal: y.principal, interest: y.interest, insurance: y.insurance }))} series={[{ key: 'principal', label: 'Capital' }, { key: 'interest', label: 'Intérêts' }, { key: 'insurance', label: 'Assurance' }]} />,
     };
@@ -114,6 +170,56 @@ export const inFine = defineSim('in-fine', {
   },
   formula: ['Intérêts périodiques = C × i / f', 'Coût = C × i × n', 'Placement : P × (1 + r)ⁿ vs C'],
   example: '500 000 € à 4 % sur 10 ans : 1 666,67 € d’intérêts mensuels, 200 000 € au total.',
+});
+
+export const guarantee = defineSim('guarantee', {
+  description: 'Frais d’une garantie de crédit immobilier : hypothèque conventionnelle ou hypothèque légale spéciale du prêteur de deniers (HLS PD, ex-PPD), et garantie mixte.',
+  defaults: () => ({ principal: 800_000, hlspdAmount: 800_000, accessoryRate: 0.2, formalities: 500 }),
+  fields: [
+    { kind: 'money', key: 'principal', label: 'Montant emprunté', slider: { min: 50_000, max: 3_000_000, step: 10_000 } },
+    { kind: 'money', key: 'hlspdAmount', label: 'Part finançant le prix d’un bien existant', hint: 'Éligible à l’HLS PD. Égale au montant emprunté pour un achat dans l’ancien sans travaux ; 0 pour du neuf, VEFA, construction ou prêt de trésorerie.' },
+    { kind: 'percent', key: 'accessoryRate', label: 'Accessoires garantis', digits: 0, hint: 'Usuellement 20 % du capital.' },
+    { kind: 'money', key: 'formalities', label: 'Formalités et débours (TTC)' },
+  ],
+  compute: (v) => {
+    if (v.hlspdAmount > v.principal) throw new ValidationError(['La part éligible à l’HLS PD ne peut dépasser le montant emprunté']);
+    const base = { principal: v.principal, accessoryRate: v.accessoryRate, formalities: v.formalities };
+    const hyp = calculateGuarantee({ ...base, type: 'hypotheque' });
+    const full = v.hlspdAmount >= v.principal;
+    const alt = v.hlspdAmount > 0 ? calculateGuarantee({ ...base, type: full ? 'hlspd' : 'mixte', hlspdAmount: v.hlspdAmount }) : null;
+    const altLabel = full ? 'HLS PD' : 'Mixte HLS PD + hypothèque';
+    const saving = alt ? hyp.total - alt.total : 0;
+    return {
+      report: {
+        headline: alt
+          ? { label: `Économie ${full ? 'de l’HLS PD' : 'de la garantie mixte'} vs hypothèque`, value: money(saving), tone: 'pos', sub: `${altLabel} ${money(alt.total)} (${pct(alt.ratio, 2)}) · hypothèque ${money(hyp.total)} (${pct(hyp.ratio, 2)})` }
+          : { label: 'Coût de l’hypothèque conventionnelle', value: money(hyp.total), sub: `${pct(hyp.ratio, 2)} du capital · HLS PD non applicable` },
+        metrics: [
+          { label: 'Hypothèque conventionnelle', value: money(hyp.total), hint: `dont TPF ${money(hyp.publicityTax)}` },
+          ...(alt ? [{ label: altLabel, value: money(alt.total), tone: 'accent' as const, hint: full ? 'exonérée de taxe de publicité foncière' : `TPF sur ${money(alt.mortgagePart)} seulement` }] : []),
+          { label: 'Sommes garanties', value: money(hyp.securedAmount) },
+          { label: 'Émoluments du notaire TTC', value: money(hyp.notaryFeesHT + hyp.vat) },
+        ],
+        tables: [guaranteeTable([['Hypothèque', hyp], ...(alt ? [[full ? 'HLS PD' : 'Mixte', alt] as [string, GuaranteeResult]] : [])])],
+        assumptions: [
+          `Sommes garanties = capital × (1 + ${pct(v.accessoryRate, 0)}) = ${money(hyp.securedAmount)}.`,
+          'Taxe de publicité foncière : 0,70 % + 2,14 % de frais d’assiette = 0,715 % des sommes garanties par hypothèque conventionnelle ; HLS PD exonérée.',
+          'Contribution de sécurité immobilière : 0,05 % des sommes garanties (minimum 15 €).',
+          'Émoluments proportionnels du notaire : barème dégressif 1,290 % / 0,532 % / 0,355 % / 0,266 % (tranches 6 500 / 17 000 / 60 000 €), majorés de 20 % de TVA.',
+          'Mixte : un seul acte, émoluments calculés sur l’ensemble des sommes garanties.',
+        ],
+        warnings: [
+          'L’HLS PD ne garantit que le prix d’un bien existant payé au moyen du prêt (art. 2402 C. civ.) : travaux, frais de notaire, VEFA et construction relèvent de l’hypothèque conventionnelle ou d’une caution.',
+          'Hypothèque et HLS PD prennent fin un an après la dernière échéance ; en cas de revente anticipée, des frais de mainlevée s’ajoutent (non inclus).',
+          'Barème des émoluments relevé sur sources secondaires : le montant définitif figure sur l’état de frais du notaire.',
+        ],
+        rules: [hyp.ruleId],
+      },
+      chart: <BarSeriesChart title="Composition du coût" stacked x="g" valueFormat={money} data={[['Hypothèque', hyp] as const, ...(alt ? [[full ? 'HLS PD' : 'Mixte', alt] as const] : [])].map(([g, x]) => ({ g, tax: x.publicityTax + x.csi, notary: x.notaryFeesHT + x.vat, other: x.formalities }))} series={[{ key: 'tax', label: 'Taxes (TPF, CSI)' }, { key: 'notary', label: 'Émoluments TTC' }, { key: 'other', label: 'Formalités' }]} />,
+    };
+  },
+  formula: ['S = C × (1 + accessoires)', 'Hypothèque : 0,715 % × S + CSI 0,05 % × S + émoluments(S) × 1,2 + formalités', 'HLS PD : CSI + émoluments TTC + formalités (sans TPF)', 'Mixte : TPF sur la seule part hypothécaire'],
+  example: 'Prêt de 200 000 € : sommes garanties 240 000 €, TPF de l’hypothèque 1 716 €, que l’HLS PD évite.',
 });
 
 /* ------------------------------ Lombard ------------------------------ */
@@ -247,5 +353,5 @@ export const pledge = defineSim('pledge', {
   example: '100 000 € décotés de 10 % et 50 000 € décotés de 50 % couvrent 115 000 € d’engagement.',
 });
 
-export const creditSims = [mortgage, capacity, inFine, lombard, pledge];
+export const creditSims = [mortgage, guarantee, capacity, inFine, lombard, pledge];
 export { num, LineSeriesChart };

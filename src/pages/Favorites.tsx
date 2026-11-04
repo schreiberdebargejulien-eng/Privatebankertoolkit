@@ -15,7 +15,7 @@ export function FavoritesPage() {
   const { favorites, toggle } = useFavorites();
   const { recents, clear } = useRecents();
   const { scenarios, remove, clear: clearScenarios } = useScenarios();
-  const metas = (ids: string[]) => ids.map(getMeta).filter(Boolean) as SimMeta[];
+  const metas = (ids: string[]) => (ids.map(getMeta).filter(Boolean) as SimMeta[]).filter((m, k, a) => a.findIndex((x) => x.id === m.id) === k);
   return (
     <div className="pb-28 lg:pb-12">
       <PageHeader title="Favoris" subtitle="Vos outils et scénarios, sur cet appareil uniquement" />

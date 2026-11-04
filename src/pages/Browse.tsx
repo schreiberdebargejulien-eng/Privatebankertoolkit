@@ -75,9 +75,9 @@ export function InvestmentsPage() {
   void bySection;
   return (
     <SectionPage title="Investissements" subtitle="Structurés, obligations, allocation et placements" groups={[
-      { label: 'Produits structurés', ids: ['autocall', 'phoenix', 'reverse-convertible', 'scenarios'] },
+      { label: 'Produits structurés', ids: ['structured', 'scenarios'] },
       { label: 'Obligations', ids: ['bond'] },
-      { label: 'Allocation et placements', ids: ['allocation', 'compare', 'net-yield', 'cap-vs-dist', 'income', 'xirr'] },
+      { label: 'Allocation et placements', ids: ['allocation', 'compare', 'cat', 'net-yield', 'cap-vs-dist', 'income', 'xirr'] },
       { label: 'Levier', ids: ['lombard'] },
     ]} />
   );

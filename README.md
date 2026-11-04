@@ -7,7 +7,7 @@ Application **PWA mobile-first** (iPhone en priorité) regroupant 28 simulateurs
 ```bash
 npm install
 npm run dev        # développement
-npm test           # 142 tests unitaires (Vitest)
+npm test           # 170 tests unitaires (Vitest)
 npm run build      # build de production + service worker (dist/)
 npm run preview    # servir le build localement
 ```
@@ -18,11 +18,13 @@ npm run preview    # servir le build localement
 
 | Domaine | Simulateurs |
 |---|---|
-| Calculs financiers | Intérêts composés · TRI/XIRR · CAGR · Rendement net · Actualisation · Comparateur de placements |
+| Calculs financiers | Intérêts composés · TRI/XIRR · CAGR · Rendement net · Actualisation · Compte à terme (TRI brut/net, sortie anticipée) · Comparateur de placements |
 | Fiscalité française | IR (QF, plafonnement, décote, CEHR) · IFI · Rachat assurance-vie · PER · Donation · Succession · Démembrement (art. 669) |
-| Financement | Crédit amortissable (TAEG, tableau) · Capacité d’emprunt · In fine · Lombard (stress −10 à −40 %) · Nantissement |
-| Obligations & structurés | Calculateur obligataire (YTM, coupon couru, duration) · Autocall · Phoenix · Reverse convertible · Scénarios personnalisés |
+| Financement | Crédit amortissable (TAEG, tableau, garantie) · Frais de garantie (hypothèque, HLS PD, mixte) · Capacité d’emprunt · In fine · Lombard (stress −10 à −40 %) · Nantissement |
+| Obligations & structurés | Calculateur obligataire (YTM, coupon couru, duration) · Produits structurés (Autocall/Athéna, Phoenix, Reverse convertible, capital protégé) · Scénarios personnalisés ou volatils |
 | Patrimoine | Projection 10/20/30 ans · Allocation d’actifs · Rente / retraits · Revenus complémentaires · Capitalisation vs distribution |
+
+**Fiscalité des placements** : chaque simulateur de placement propose le régime de l’investisseur — particulier (PFU, barème avec TMI, PEA selon l’ancienneté du plan), société à l’IS (25 % / 15 %), taux personnalisé ou aucune fiscalité.
 
 Chaque fiche : description, formulaire tactile avec valeurs par défaut, résultat principal, résultats secondaires, graphique, tableau détaillé, hypothèses, points d’attention, barèmes et sources, méthode et formules, exemple — et les actions Copier / Export PDF / Partager / Enregistrer / Réinitialiser.
 
