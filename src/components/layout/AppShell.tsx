@@ -12,6 +12,7 @@ import { cn } from '@/lib/cn';
 import { CommandProvider, useCommand } from './CommandPalette';
 import { LogoMark, Wordmark } from './Logo';
 import { Kbd } from '@/components/ui/primitives';
+import { DevMode } from '@/components/dev/DevMode';
 
 /* =========================================================================
  * Mise en page adaptative
@@ -48,6 +49,7 @@ function Shell() {
         <Outlet />
       </main>
       <MobileTabBar />
+      <DevMode />
     </div>
   );
 }

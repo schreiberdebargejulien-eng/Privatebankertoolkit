@@ -53,6 +53,10 @@ Le calcul du taux est dans `src/engine/tax/fr/investmentTax.ts` (PFU, barème av
 - **Montants fiscaux** : estimations ; les fiches fiscales portent `fiscal: true` pour afficher la mention adaptée.
 - `tsconfig.tsbuildinfo` est suivi par git : ne pas committer ses modifications locales (`git checkout tsconfig.tsbuildinfo`).
 
+## Mode développeur
+
+Commentaires de test localisés (`src/components/dev/DevMode.tsx`, logique dans `src/lib/devComments.ts`), activés par Paramètres › Phase de test ou `#/?dev=1`. Les emplacements s’appuient sur les attributs `data-dev-field` (champs) et `data-dev-label` (blocs) : les conserver lors d’une refonte des composants et en ajouter sur les nouveaux blocs. Voir `docs/ARCHITECTURE.md`.
+
 ## Vérification visuelle
 
 Chromium et Playwright sont disponibles. Après `npm run build && npm run preview`, ouvrir `http://localhost:4173/#/sim/<id>` pour contrôler l’écran, et déclencher « Export PDF » pour vérifier l’alignement des tableaux exportés.

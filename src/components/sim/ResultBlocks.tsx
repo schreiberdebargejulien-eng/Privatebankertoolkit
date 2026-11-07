@@ -37,7 +37,7 @@ export function LiveValue({ value, className, flash = false }: { value: string; 
 export function Headline({ report, fiscal }: { report: Report; fiscal?: boolean }) {
   const h = report.headline;
   return (
-    <Card className="p-5 md:p-6">
+    <Card className="p-5 md:p-6" data-dev-label="Résultat principal">
       <div className="flex items-center gap-2 flex-wrap">
         <Eyebrow>{h.label}</Eyebrow>
         {fiscal && <Badge tone="muted" className="h-[18px] text-[10.5px]">Estimation</Badge>}
@@ -53,10 +53,10 @@ export function Headline({ report, fiscal }: { report: Report; fiscal?: boolean 
 export function Metrics({ items }: { items: Report['metrics'] }) {
   if (!items.length) return null;
   return (
-    <Card className="overflow-hidden">
+    <Card className="overflow-hidden" data-dev-label="Indicateurs">
       <div className="divide-y divide-line">
         {items.map((m, k) => (
-          <div key={k} className="flex items-baseline justify-between gap-4 px-4 md:px-5 py-3">
+          <div key={k} data-dev-label={`Indicateur « ${m.label} »`} className="flex items-baseline justify-between gap-4 px-4 md:px-5 py-3">
             <div className="min-w-0">
               <div className="text-[13.5px] text-fg/75 leading-snug">{m.label}</div>
               {m.hint && <div className="text-[12px] text-muted mt-0.5 leading-snug">{m.hint}</div>}
@@ -77,7 +77,7 @@ export function DataTable({ table }: { table: ReportTable }) {
   const rows = all ? table.rows : table.rows.slice(0, limit);
   const align = (k: number) => ((table.align?.[k] ?? (k === 0 ? 'left' : 'right')) === 'left' ? 'text-left' : 'text-right');
   return (
-    <Card className="overflow-hidden">
+    <Card className="overflow-hidden" data-dev-label={`Tableau « ${table.title} »`}>
       <div className="flex items-baseline justify-between gap-3 px-4 md:px-5 pt-4 pb-2.5">
         <div className="text-[14px] font-semibold tracking-tight text-fg">{table.title}</div>
         {table.rows.length > 1 && <div className="text-[12px] text-muted tnum shrink-0">{table.rows.length} lignes</div>}
@@ -115,7 +115,7 @@ export function DataTable({ table }: { table: ReportTable }) {
 export function Disclosure({ title, icon, children, defaultOpen = false, className }: { title: string; icon?: ReactNode; children: ReactNode; defaultOpen?: boolean; className?: string }) {
   const [open, setOpen] = useState(defaultOpen);
   return (
-    <div className={className}>
+    <div className={className} data-dev-label={`Rubrique « ${title} »`}>
       <button className="w-full flex items-center gap-2.5 px-4 md:px-5 min-h-12 text-left hover:bg-surface2/40 transition-colors" onClick={() => setOpen(!open)} aria-expanded={open}>
         <span className="text-muted [&_svg]:h-4 [&_svg]:w-4">{icon}</span>
         <span className="flex-1 text-[13.5px] font-medium text-fg">{title}</span>
@@ -142,7 +142,7 @@ export function Assumptions({ items }: { items: string[] }) {
 export function Warnings({ items }: { items: string[] }) {
   if (!items.length) return null;
   return (
-    <div className="rounded-2xl bg-warn/[0.07] shadow-[inset_0_0_0_1px_rgb(var(--warn)/0.22)] p-4 md:px-5">
+    <div data-dev-label="Points d’attention" className="rounded-2xl bg-warn/[0.07] shadow-[inset_0_0_0_1px_rgb(var(--warn)/0.22)] p-4 md:px-5">
       <div className="flex items-center gap-2 text-warn text-[13px] font-semibold mb-2"><AlertTriangle className="h-4 w-4" strokeWidth={1.9} /> Points d’attention</div>
       <ul className="space-y-1.5 text-[13px] text-fg/80 leading-snug list-disc pl-4 marker:text-warn/70">{items.map((w, k) => <li key={k}>{w}</li>)}</ul>
     </div>
@@ -186,7 +186,7 @@ export function Method({ formula, example }: { formula: string[]; example: strin
 /** Regroupe hypothèses, barèmes et méthode dans une seule surface. */
 export function CalculationDetails({ report, formula, example }: { report: Report; formula: string[]; example: string }) {
   return (
-    <Card className="overflow-hidden">
+    <Card className="overflow-hidden" data-dev-label="Détails du calcul">
       <div className="px-4 md:px-5 pt-4 pb-1"><Eyebrow>Détails du calcul</Eyebrow></div>
       <div className="divide-y divide-line">
         <Assumptions items={report.assumptions} />
