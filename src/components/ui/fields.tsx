@@ -1,6 +1,9 @@
-import { useEffect, useId, useState, type ReactNode } from 'react';
+import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/cn';
+
+/** Espaces (y compris insécables) insérées par le formatage fr-FR. */
+const SPACES = /[\s\u00a0\u202f]/g;
 
 const fmt = new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 6 });
 
@@ -24,8 +27,19 @@ export function FieldShell({ label, hint, htmlFor, children, error }: { label: s
 
 const inputBase = 'w-full h-12 rounded-xl bg-surface2/70 border border-transparent px-3 text-[16px] text-fg placeholder:text-muted/60 outline-none transition focus:border-accent/60 focus:bg-surface';
 
-/** Champ numérique tactile : clavier décimal iOS, séparateurs français, suffixe d'unité. */
-export function NumberInput({ value, onChange, suffix, scale = 1, id, allowNegative = true, placeholder }: {
+/** Inverse le signe d’une saisie en cours (« 12,5 » ↔ « -12,5 »), en conservant le reste du texte. */
+export function toggleSign(s: string): string {
+  const t = s.trimStart();
+  return t.startsWith('-') ? t.slice(1) : '-' + t;
+}
+
+/**
+ * Champ numérique tactile : clavier décimal iOS, séparateurs français, suffixe d'unité.
+ * Le clavier décimal mobile n’offre pas de signe moins : un bouton « ± » placé dans le champ
+ * inverse le signe sans fermer le clavier (le focus reste sur la saisie). Par défaut, il n’est
+ * affiché que sur les champs en pourcentage ; `signButton` permet de le forcer ou de le masquer.
+ */
+export function NumberInput({ value, onChange, suffix, scale = 1, id, allowNegative = true, signButton, placeholder }: {
   value: number | null | undefined;
   onChange: (v: number | null) => void;
   suffix?: string;
@@ -33,30 +47,69 @@ export function NumberInput({ value, onChange, suffix, scale = 1, id, allowNegat
   scale?: number;
   id?: string;
   allowNegative?: boolean;
+  /** Affiche le bouton « ± » (par défaut : seulement pour un suffixe « % »). */
+  signButton?: boolean;
   placeholder?: string;
 }) {
+  const showSign = allowNegative && (signButton ?? suffix === '%');
   const toDisplay = (v: number | null | undefined) => (v === null || v === undefined || !Number.isFinite(v) ? '' : fmt.format(Math.round(v * scale * 1e8) / 1e8));
   const [focused, setFocused] = useState(false);
   const [text, setText] = useState(toDisplay(value));
+  const inputRef = useRef<HTMLInputElement>(null);
+  /** Vrai quand le focus vient du bouton « ± » : on ne sélectionne alors pas tout le texte. */
+  const keepCaret = useRef(false);
   useEffect(() => { if (!focused) setText(toDisplay(value)); /* eslint-disable-next-line */ }, [value, focused]);
+
+  const commit = (t: string) => {
+    setText(t);
+    const n = parseFrNumber(t);
+    onChange(n === null ? null : n / scale);
+  };
+
+  const flipSign = () => {
+    const input = inputRef.current;
+    const base = (focused ? text : toDisplay(value)).replace(SPACES, '');
+    const next = toggleSign(base);
+    if (!focused && input) { keepCaret.current = true; input.focus(); }
+    commit(next);
+    requestAnimationFrame(() => { if (input) input.setSelectionRange(next.length, next.length); });
+  };
+
   return (
     <div className="relative">
+      {showSign && (
+        <button
+          type="button"
+          aria-label="Changer le signe (positif / négatif)"
+          title="Changer le signe"
+          tabIndex={-1}
+          // Empêche le bouton de prendre le focus : le clavier mobile reste ouvert.
+          onPointerDown={(e) => e.preventDefault()}
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={flipSign}
+          className="absolute left-1.5 top-1/2 -translate-y-1/2 h-9 w-9 rounded-lg text-[17px] font-semibold leading-none text-muted bg-surface/70 border border-line/70 active:bg-line transition"
+        >±</button>
+      )}
       <input
+        ref={inputRef}
         id={id}
-        className={cn(inputBase, 'tnum', suffix && (suffix.length <= 2 ? 'pr-8' : 'pr-14'))}
+        className={cn(inputBase, 'tnum', showSign && 'pl-12', suffix && (suffix.length <= 2 ? 'pr-8' : 'pr-14'))}
         inputMode="decimal"
         enterKeyHint="done"
         autoComplete="off"
         placeholder={placeholder}
         value={text}
-        onFocus={(e) => { setFocused(true); setText(text.replace(/[\s  ]/g, '')); requestAnimationFrame(() => e.target.select()); }}
+        onFocus={(e) => {
+          setFocused(true);
+          if (keepCaret.current) { keepCaret.current = false; return; }
+          setText(text.replace(SPACES, ''));
+          requestAnimationFrame(() => e.target.select());
+        }}
         onBlur={() => { setFocused(false); setText(toDisplay(value)); }}
         onChange={(e) => {
           let t = e.target.value;
           if (!allowNegative) t = t.replace('-', '');
-          setText(t);
-          const n = parseFrNumber(t);
-          onChange(n === null ? null : n / scale);
+          commit(t);
         }}
       />
       {suffix && <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted">{suffix}</span>}
