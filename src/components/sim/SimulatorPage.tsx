@@ -12,6 +12,7 @@ import { dateFR, money, num, pct } from '@/lib/format';
 import { copyText, reportToText, DISCLAIMER_FISCAL, DISCLAIMER_INVEST, type ReportDoc } from '@/lib/report';
 import { decodeValues, shareUrl } from '@/lib/share';
 import { CATEGORIES } from '@/simulators/catalog';
+import { setDevSimContext } from '@/lib/devComments';
 import { cn } from '@/lib/cn';
 import { Toast, useToast } from '@/components/ui/Toast';
 
@@ -89,6 +90,18 @@ export function SimulatorPage({ def }: { def: SimulatorDef }) {
     return () => io.disconnect();
   }, []);
 
+  /** Valeurs partageables : les champs texte libres sont exclus. */
+  const shareableValues = useMemo(() => {
+    const textKeys = def.fields.filter((f) => f.kind === 'text').map((f) => (f as InputField).key);
+    return Object.fromEntries(Object.entries(values).filter(([k]) => !textKeys.includes(k)));
+  }, [values, def.fields]);
+  // Mode développeur : lien de reproduction joint, sur demande, aux commentaires de test.
+  useEffect(() => {
+    if (!settings.devMode) return;
+    setDevSimContext({ simId: def.id, replayLink: shareUrl(def.id, shareableValues) });
+    return () => setDevSimContext(null);
+  }, [settings.devMode, def.id, shareableValues]);
+
   const fav = isFavorite(def.id);
   const onCopy = async () => { if (doc) show((await copyText(reportToText(doc))) ? 'Résultats copiés' : 'Copie impossible'); };
   const onPDF = async () => {
@@ -96,9 +109,7 @@ export function SimulatorPage({ def }: { def: SimulatorDef }) {
     try { const { exportPDF } = await import('@/lib/pdf'); await exportPDF(doc); show('PDF généré'); } catch { show('Export PDF impossible'); }
   };
   const onShare = async () => {
-    const textKeys = def.fields.filter((f) => f.kind === 'text').map((f) => (f as InputField).key);
-    const clean = Object.fromEntries(Object.entries(values).filter(([k]) => !textKeys.includes(k)));
-    const url = shareUrl(def.id, clean);
+    const url = shareUrl(def.id, shareableValues);
     if (navigator.share) {
       try { await navigator.share({ title: def.title, url }); return; } catch { /* annulé */ }
     }

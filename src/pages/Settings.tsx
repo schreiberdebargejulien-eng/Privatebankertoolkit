@@ -34,6 +34,12 @@ export function SettingsPage() {
         <SectionTitle>Barèmes fiscaux</SectionTitle>
         <Link to="/sources" className="group block"><Card className="flex items-center gap-3 px-3.5 py-3 transition-shadow duration-240 group-hover:shadow-md"><IconTile icon={BookOpen} /><div className="flex-1 min-w-0"><div className="text-[14px] font-medium">Barèmes, sources et mises à jour</div><div className="text-[12.5px] text-muted mt-[3px]">{ALL_RULES.length} règles versionnées · vérifiées le {dateFR(ALL_RULES.map((r) => r.lastVerified).sort().reverse()[0])}</div></div><ChevronRight className="h-4 w-4 text-faint group-hover:translate-x-0.5 transition" /></Card></Link>
 
+        <SectionTitle description="Pour la phase de test de l’application.">Phase de test</SectionTitle>
+        <Card className="p-4 md:p-5 space-y-3">
+          <Toggle label="Mode développeur" hint="Affiche une barre « Commenter » : touchez un élément de l’écran pour y rattacher un commentaire (page, section, champ ou bouton concerné). Les commentaires restent sur cet appareil et s’exportent en Markdown ou JSON." checked={settings.devMode} onChange={(devMode) => update({ devMode })} />
+          <p className="text-[12px] text-muted leading-snug">Activation directe par lien : ajoutez <code className="font-mono text-fg/80">?dev=1</code> à l’adresse (par exemple <code className="font-mono text-fg/80">#/?dev=1</code>), <code className="font-mono text-fg/80">?dev=0</code> pour le désactiver.</p>
+        </Card>
+
         <SectionTitle>Confidentialité</SectionTitle>
         <Card className="p-4 md:p-5 space-y-3 text-[13px] text-muted leading-relaxed">
           <div className="flex items-center gap-2 text-fg font-medium text-[14px]"><ShieldCheck className="h-4 w-4 text-pos" strokeWidth={1.75} /> Données traitées localement</div>
@@ -42,7 +48,7 @@ export function SettingsPage() {
             <li>Les saisies ne sont pas conservées automatiquement ; seuls les favoris, l’historique (identifiants de simulateurs) et vos préférences le sont.</li>
             <li>Les scénarios ne sont enregistrés que sur action explicite, sur cet appareil. N’y indiquez aucun nom de client.</li>
           </ul>
-          <Button variant="danger" className="w-full mt-2" onClick={() => { if (window.confirm('Effacer toutes les données locales (favoris, historique, scénarios, paramètres) ?')) { clearAllLocalData(); } }}><Trash2 className="h-4 w-4" /> Effacer toutes les données locales</Button>
+          <Button variant="danger" className="w-full mt-2" onClick={() => { if (window.confirm('Effacer toutes les données locales (favoris, historique, scénarios, paramètres, commentaires de test) ?')) { clearAllLocalData(); } }}><Trash2 className="h-4 w-4" /> Effacer toutes les données locales</Button>
         </Card>
 
         <p className="text-center text-[12px] text-muted mt-10 leading-relaxed">Private Banker Toolkit · v{__APP_VERSION__}<br />Estimations indicatives — ne constituent ni un conseil fiscal, juridique ou en investissement.</p>

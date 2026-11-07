@@ -17,6 +17,8 @@ export interface Settings {
   contributionTiming: 'start' | 'end';
   /** Taux d'inflation par défaut. */
   inflation: number;
+  /** Mode développeur (phase de test) : commentaires rattachés aux éléments de l'interface. */
+  devMode: boolean;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -27,6 +29,7 @@ export const DEFAULT_SETTINGS: Settings = {
   dayCount: 'ACT/ACT',
   contributionTiming: 'end',
   inflation: 0.02,
+  devMode: false,
 };
 
 interface Ctx { settings: Settings; update: (p: Partial<Settings>) => void; resolvedTheme: 'light' | 'dark' }

@@ -60,6 +60,14 @@ src/
 - **Graphiques** : palette catégorielle de `components/charts.tsx` validée (luminance, chroma, séparation daltonisme, contraste) en clair et en sombre ; ordre fixe.
 - **Mouvement** : animations courtes (≤ 500 ms) ; `prefers-reduced-motion` les neutralise globalement (CSS) et désactive celles de Recharts.
 
+## Mode développeur (phase de test)
+
+- **Activation** : Paramètres › Phase de test, ou lien `#/?dev=1` (`?dev=0` pour désactiver) ; réglage `settings.devMode`.
+- **Commentaire localisé** (`components/dev/DevMode.tsx`) : « Commenter » passe en mode sélection ; l'élément touché est décrit par `lib/devComments.ts` — route (sans les paramètres de saisie `s`/`scenario`), titre de page, fil d'Ariane lisible (section `aria-label`, repère `data-dev-label`, carte titrée, champ `data-dev-field`, bouton…), sélecteur CSS (raccourci dès qu'il est unique), position du clic, format d'écran, thème, version. Sur un simulateur, un lien de reproduction (valeurs hors champs texte) peut être joint.
+- **Repères** : numérotés sur les éléments commentés de la page courante ; « Voir » navigue vers l'emplacement et le surligne.
+- **Stockage et transmission** : `pbt.dev.comments` sur l'appareil uniquement ; export Markdown (copie) ou JSON (fichier), import JSON avec fusion par identifiant (version la plus récente conservée).
+- **Repères sémantiques** : `FieldShell` porte `data-dev-field`, les blocs de résultats `data-dev-label`. Pour un nouveau bloc d'interface important, ajouter un `data-dev-label` explicite.
+
 ## Tests
 `npm test` : 170 tests dont références externes (Excel XIRR, PRICE, YIELD), calculs fiscaux posés à la main (IR avec décote et plafonnement QF, IFI avec décote et limitation des dettes, droits de donation avec rappel fiscal, succession, assurance-vie avant/après 2017 et seuil de 150 000 €), CAT, frais de garantie, régimes fiscaux des placements, et un test de non-régression qui exécute chaque fiche avec ses valeurs par défaut et sous chaque régime fiscal.
 

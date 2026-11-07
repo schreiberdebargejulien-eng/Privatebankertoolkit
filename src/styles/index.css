@@ -154,3 +154,7 @@ input[type='date']::-webkit-date-and-time-value { text-align: left; }
 @media print {
   .no-print { display: none !important; }
 }
+
+/* Mode développeur : sélection de l'élément à commenter */
+.dev-picking, .dev-picking * { cursor: crosshair !important; }
+.dev-picking [data-dev-ui], .dev-picking [data-dev-ui] * { cursor: pointer !important; }

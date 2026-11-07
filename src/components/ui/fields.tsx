@@ -17,7 +17,7 @@ export function parseFrNumber(s: string): number | null {
 
 export function FieldShell({ label, hint, htmlFor, children, error }: { label: string; hint?: string; htmlFor?: string; children: ReactNode; error?: string }) {
   return (
-    <div className="space-y-1.5 min-w-0">
+    <div className="space-y-1.5 min-w-0" data-dev-field={label}>
       <label htmlFor={htmlFor} className="block text-[13px] font-medium text-fg/75 leading-tight">{label}</label>
       {children}
       {error ? <p className="text-[12px] text-neg">{error}</p> : hint ? <p className="text-[12px] text-muted leading-snug">{hint}</p> : null}
