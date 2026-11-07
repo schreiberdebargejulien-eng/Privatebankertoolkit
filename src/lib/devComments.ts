@@ -65,8 +65,13 @@ export interface ElLike {
   parentElement: ElLike | null;
   children: ArrayLike<ElLike>;
   textContent: string | null;
+  /** Texte rendu (DOM) : respecte les sauts de bloc, contrairement à `textContent`. */
+  innerText?: string;
   getAttribute(name: string): string | null;
 }
+
+/** Texte lisible d'un élément : `innerText` (blocs séparés) si disponible, sinon `textContent`. */
+const textOf = (el: ElLike) => (typeof el.innerText === 'string' ? el.innerText : el.textContent);
 
 const clean = (s: string | null | undefined, max = 60) => {
   const t = (s ?? '').replace(/[\s  ]+/g, ' ').trim();
@@ -80,7 +85,7 @@ const isRoot = (el: ElLike) => ['body', 'html'].includes(tag(el)) || el.id === '
 function leadingHeading(el: ElLike, depth = 3): string | null {
   let cur: ElLike | undefined = el.children[0];
   for (let d = 0; d < depth && cur; d++) {
-    if (/^h[1-3]$/.test(tag(cur))) return clean(cur.textContent);
+    if (/^h[1-3]$/.test(tag(cur))) return clean(textOf(cur));
     cur = cur.children[0];
   }
   return null;
@@ -90,7 +95,7 @@ const INTERACTIVE: Record<string, string> = { button: 'Bouton', a: 'Lien', input
 
 /** Nom accessible approché d'un élément interactif. */
 function accessibleName(el: ElLike): string {
-  return clean(el.getAttribute('aria-label') || el.textContent || el.getAttribute('title') || el.getAttribute('placeholder'), 50);
+  return clean(el.getAttribute('aria-label') || textOf(el) || el.getAttribute('title') || el.getAttribute('placeholder'), 50);
 }
 
 /**
@@ -109,22 +114,30 @@ export function describeElement(target: ElLike): string[] {
     const kind = INTERACTIVE[tag(cur)] ?? (role === 'radio' || role === 'switch' || role === 'tab' ? 'Option' : null);
     if (kind) { const n = accessibleName(cur); leaf = n ? `${kind} « ${n} »` : kind; unnamed = !n; break; }
   }
-  if (!leaf) { const t = clean(target.textContent, 50); leaf = t ? `« ${t} »` : `Zone <${tag(target)}>`; }
-
   const levels: string[] = [];
+  /** Vrai si l'élément visé est lui-même nommé (repère ou titre) : son texte complet serait redondant. */
+  let targetNamed = false;
   for (let cur: ElLike | null = target; cur && !isRoot(cur); cur = cur.parentElement) {
     const field = cur.getAttribute('data-dev-field');
     const label = cur.getAttribute('data-dev-label');
     const aria = tag(cur) === 'section' || tag(cur) === 'nav' || tag(cur) === 'aside' || cur.getAttribute('role') === 'dialog' ? cur.getAttribute('aria-label') : null;
-    const heading = cur !== target ? leadingHeading(cur) : null;
+    const heading = leadingHeading(cur);
+    const before = levels.length;
     if (field) levels.push(`Champ « ${clean(field)} »`);
     else if (label) levels.push(label);
     else if (aria) levels.push(aria);
     else if (heading) levels.push(`« ${heading} »`);
+    if (cur === target && levels.length > before) targetNamed = true;
+  }
+  if (!leaf && !targetNamed) {
+    // Texte cliqué : première ligne seulement (un conteneur entier donnerait un texte illisible).
+    const first = (textOf(target) ?? '').split(/\n+/).map((x) => x.trim()).find(Boolean);
+    const t = clean(first, 50);
+    leaf = t ? `« ${t} »` : `Zone <${tag(target)}>`;
   }
   for (const l of levels.reverse()) push(l);
   // Un contrôle sans nom (saisie d'un champ déjà nommé) n'apporte rien au fil d'Ariane.
-  if (!(unnamed && out.length)) push(leaf);
+  if (leaf && !(unnamed && out.length)) push(leaf);
   return out;
 }
 

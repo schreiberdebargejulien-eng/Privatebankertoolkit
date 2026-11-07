@@ -107,6 +107,23 @@ export function FormCard({ title, description, children, className, action }: { 
   );
 }
 
+/**
+ * Ligne d'un éditeur de lignes (classe d'actifs, légataire…) : bloc encadré et numéroté,
+ * pour séparer nettement chaque élément. `title` occupe l'en-tête, `action` se place à droite.
+ */
+export function LineItem({ index, title, action, children, className }: { index: number; title: ReactNode; action?: ReactNode; children: ReactNode; className?: string }) {
+  return (
+    <div className={cn('rounded-xl bg-surface2/60 hairline p-3 md:p-3.5 space-y-3', className)} data-dev-label={`Ligne ${index}`}>
+      <div className="flex gap-2 items-center">
+        <span className="inline-flex h-6 min-w-6 px-1.5 shrink-0 items-center justify-center rounded-full bg-accent/10 text-accent text-[11.5px] font-semibold tnum" aria-hidden>{index}</span>
+        <div className="flex-1 min-w-0">{title}</div>
+        {action}
+      </div>
+      {children}
+    </div>
+  );
+}
+
 /** Libellé compact pour les champs des éditeurs de lignes. */
 export const MINI_LABEL = 'block space-y-1.5 text-[12px] font-medium text-muted';
 

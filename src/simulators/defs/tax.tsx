@@ -1,7 +1,11 @@
 import {
   calculateIR, calculateIFI, calculateAssuranceVie, calculatePER, calculateDonation, calculateSuccession, calculateDismemberment,
-  IR_VERSIONS, PER_VERSIONS, IFI_VERSIONS, DMTG_VERSIONS, DISMEMBERMENT_VERSIONS, CAPITAL_TAX_VERSIONS, RELATIONSHIP_LABELS, pickVersion, todayISO,
+  IR_VERSIONS, PER_VERSIONS, IFI_VERSIONS, DMTG_VERSIONS, DISMEMBERMENT_VERSIONS, CAPITAL_TAX_VERSIONS, RELATIONSHIP_LABELS, LEGATEE_RELATIONSHIPS, pickVersion, todayISO, ValidationError,
 } from '@/engine';
+import { Plus, Trash2 } from 'lucide-react';
+import { Button, FormCard, LineItem } from '@/components/ui/primitives';
+import { NumberInput, Select, TextInput } from '@/components/ui/fields';
+import type { Values } from '../types';
 import { defineSim } from '../helpers';
 import { money, pct, num } from '@/lib/format';
 import { BarSeriesChart, DonutChart, LineSeriesChart } from '@/components/charts';
@@ -276,10 +280,47 @@ export const donation = defineSim('donation', {
 });
 
 /* ============================== Succession ============================== */
+/* ------------------------------ Légataires (testament) ------------------------------ */
+type Legacy = { label: string; relationship: (typeof LEGATEE_RELATIONSHIPS)[number]; share: number | null; disabled: boolean };
+const LEGATEE_OPTIONS = LEGATEE_RELATIONSHIPS.map((r) => ({ value: r, label: r === 'spouse' ? 'Partenaire de PACS / époux' : RELATIONSHIP_LABELS[r] }));
+
+function LegaciesEditor({ values, set }: { values: Values; set: (p: Values) => void }) {
+  const lines: Legacy[] = values.legacies ?? [];
+  const upd = (k: number, p: Partial<Legacy>) => set({ legacies: lines.map((l, i) => (i === k ? { ...l, ...p } : l)) });
+  const total = lines.reduce((a, l) => a + (l.share ?? 0), 0);
+  const label = 'block space-y-1.5 text-[12px] font-medium text-muted';
+  return (
+    <FormCard title="Légataires (testament)" description="Personnes désignées par testament, parents ou non : tiers, neveu, partenaire de PACS… Les legs s’imputent sur la quotité disponible ; le solde suit la dévolution légale.">
+      {lines.length === 0 && <p className="text-[13px] text-muted mb-3">Aucun legs : la succession suit la dévolution légale.</p>}
+      <div className="space-y-3">
+        {lines.map((l, k) => (
+          <LineItem
+            key={k}
+            index={k + 1}
+            title={<TextInput value={l.label} maxLength={40} placeholder={`Légataire ${k + 1} (qualité, sans nom)`} onChange={(x) => upd(k, { label: x })} />}
+            action={<Button variant="ghost" size="icon" aria-label="Supprimer le légataire" onClick={() => set({ legacies: lines.filter((_, i) => i !== k) })}><Trash2 className="h-4 w-4 text-muted" /></Button>}
+          >
+            <div className="grid grid-cols-[1.6fr_1fr] gap-2">
+              <label className={label}><span>Lien avec le défunt</span><Select value={l.relationship} options={LEGATEE_OPTIONS} onChange={(relationship) => upd(k, { relationship })} /></label>
+              <label className={label}><span>Part léguée</span><NumberInput value={l.share} scale={100} suffix="%" allowNegative={false} onChange={(share) => upd(k, { share })} /></label>
+            </div>
+            <label className="flex items-center gap-2.5 text-[13px] text-fg/80 cursor-pointer">
+              <input type="checkbox" className="h-4 w-4 accent-[rgb(var(--accent))]" checked={l.disabled} onChange={(e) => upd(k, { disabled: e.target.checked })} />
+              Légataire en situation de handicap (abattement supplémentaire)
+            </label>
+          </LineItem>
+        ))}
+      </div>
+      {lines.length > 0 && <p className="text-[12px] text-muted mt-3 tnum">Total légué : {pct(total, 1)} de l’actif net successoral.</p>}
+      {lines.length < 12 && <Button variant="subtle" className="mt-3 w-full" onClick={() => set({ legacies: [...lines, { label: '', relationship: 'other', share: lines.length === 0 ? 1 : 0, disabled: false }] })}><Plus className="h-4 w-4" /> Ajouter un légataire</Button>}
+    </FormCard>
+  );
+}
+
 export const succession = defineSim('succession', {
-  description: 'Liquidation du régime matrimonial, dévolution légale (réserve, quotité disponible, droits du conjoint) et droits par héritier.',
+  description: 'Liquidation du régime matrimonial, dévolution légale (réserve, quotité disponible, droits du conjoint), legs par testament à tout bénéficiaire, et droits par héritier avec le fondement de la fiscalité appliquée.',
   fiscal: true,
-  defaults: () => ({ regime: 'community', ownAssets: 800_000, commonAssets: 3_000_000, liabilities: 150_000, spouseAlive: true, spouseAge: 72, spouseOption: 'usufruct', children: 3, allChildrenCommon: true, priorGiftsPerChild: 0, parentsAlive: 0, siblings: 0, siblingsExempt: false }),
+  defaults: () => ({ regime: 'community', ownAssets: 800_000, commonAssets: 3_000_000, liabilities: 150_000, spouseAlive: true, spouseAge: 72, spouseOption: 'usufruct', children: 3, allChildrenCommon: true, priorGiftsPerChild: 0, parentsAlive: 0, siblings: 0, siblingsExempt: false, legacies: [] }),
   fields: [
     { kind: 'group', label: 'Patrimoine du défunt' },
     { kind: 'select', key: 'regime', label: 'Régime matrimonial', options: [{ value: 'community', label: 'Communauté (légale ou conventionnelle)' }, { value: 'separation', label: 'Séparation de biens' }, { value: 'universal', label: 'Communauté universelle — attribution intégrale' }] },
@@ -297,7 +338,10 @@ export const succession = defineSim('succession', {
     { kind: 'number', key: 'siblings', label: 'Frères et sœurs', integer: true, visibleIf: (v) => v.children === 0 && !v.spouseAlive },
     { kind: 'toggle', key: 'siblingsExempt', label: 'Frères/sœurs remplissant les conditions d’exonération', visibleIf: (v) => v.children === 0 && !v.spouseAlive && v.siblings > 0 },
   ],
+  customForm: (p) => <LegaciesEditor {...p} />,
   compute: (v) => {
+    const legacies = (v.legacies ?? []) as Legacy[];
+    if (legacies.some((l) => l.share === null)) throw new ValidationError(['Renseignez la part léguée à chaque légataire']);
     const r = calculateSuccession(v as never);
     return {
       report: {
@@ -306,21 +350,30 @@ export const succession = defineSim('succession', {
           ...(r.communityShare > 0 ? [{ label: 'Quote-part de communauté / indivision', value: money(r.communityShare) }] : []),
           { label: 'Actif brut successoral', value: money(r.grossEstate) },
           { label: 'Actif net successoral', value: money(r.netEstate) },
-          ...(v.children > 0 ? [
-            { label: `Réserve héréditaire (${pct(r.reserveRate, 0)})`, value: money(r.reserve) },
-            { label: 'Quotité disponible', value: money(r.available) },
+          ...(r.reserveRate > 0 ? [
+            { label: `Réserve héréditaire (${pct(r.reserveRate, 0)})`, value: money(r.reserve), hint: v.children > 0 ? 'descendants (art. 913 C. civ.)' : 'conjoint sans descendant (art. 914-1 C. civ.)' },
+            { label: 'Quotité disponible', value: money(r.available), hint: 'part pouvant être léguée librement' },
           ] : []),
+          ...(r.legacyShare > 0 ? [{ label: 'Total légué par testament', value: money(r.netEstate * r.legacyShare), hint: r.legacyReduction < 1 ? 'après réduction à la quotité disponible' : undefined }] : []),
           ...(r.usufruct > 0 ? [{ label: 'Valeur fiscale de l’usufruit du conjoint', value: pct(r.usufruct, 0) }] : []),
         ],
-        tables: [{ title: 'Droits par héritier', columns: ['Héritier', 'Droits reçus', 'Valeur', 'Abattement', 'Droits', 'Net'], align: ['left', 'left', 'right', 'right', 'right', 'right'], rows: r.heirs.map((h) => [h.label, h.rights, money(h.value), h.relationship === 'spouse' ? 'Exonéré' : money(h.allowance), money(h.duties), money(h.net)]) }],
-        assumptions: ['Dévolution légale, sans testament ni donation au dernier vivant.', 'Nue-propriété des enfants valorisée selon l’art. 669 CGI à l’âge du conjoint.', 'Conjoint survivant exonéré (art. 796-0 bis CGI).'],
+        tables: [
+          { title: 'Droits par bénéficiaire', columns: ['Bénéficiaire', 'Droits reçus', 'Valeur', 'Abattement', 'Droits', 'Net'], align: ['left', 'left', 'right', 'right', 'right', 'right'], rows: r.heirs.map((h) => [h.label, h.rights, money(h.value), h.duties === 0 && h.taxable === 0 && h.allowance === 0 ? 'Exonéré' : money(h.allowance), money(h.duties), money(h.net)]) },
+          { title: 'Pourquoi cette fiscalité ?', columns: ['Bénéficiaire', 'Fiscalité appliquée'], align: ['left', 'left'], rows: r.heirs.map((h) => [`${h.label}${h.origin === 'legacy' ? ' (légataire)' : ''}`, h.basis]) },
+        ],
+        assumptions: [
+          r.legacyShare > 0 ? `Testament : ${pct(r.legacyShare, 1)} de l’actif net légué ; le solde suit la dévolution légale.` : 'Dévolution légale, sans testament ni donation au dernier vivant.',
+          'Le taux et l’abattement dépendent du lien de parenté entre le défunt et chaque bénéficiaire (art. 777, 779 et 788 CGI), qu’il hérite par la loi ou par testament.',
+          'Nue-propriété des enfants valorisée selon l’art. 669 CGI à l’âge du conjoint.',
+          'Conjoint survivant et partenaire de PACS exonérés (art. 796-0 bis CGI) ; le partenaire de PACS n’hérite que par testament.',
+        ],
         warnings: r.warnings,
         rules: [pickVersion(DMTG_VERSIONS).meta.id, pickVersion(DISMEMBERMENT_VERSIONS).meta.id],
       },
       chart: r.heirs.length > 0 ? <BarSeriesChart title="Valeur reçue et droits par héritier" x="h" stacked data={r.heirs.map((h) => ({ h: h.label.replace('Conjoint survivant', 'Conjoint'), net: h.net, duties: h.duties }))} series={[{ key: 'net', label: 'Net reçu' }, { key: 'duties', label: 'Droits' }]} /> : undefined,
     };
   },
-  formula: ['Actif net = biens propres + ½ communauté − passif', 'NP enfant = actif net × (1 − usufruit 669) / n', 'Droits = Barème(part − abattement résiduel)'],
+  formula: ['Actif net = biens propres + ½ communauté − passif', 'Legs ≤ quotité disponible (sinon réduction à proportion) ; solde = actif net − legs, réparti selon la loi', 'NP enfant = solde × (1 − usufruit 669) / n', 'Droits = Barème selon le lien (part − abattement résiduel)'],
   example: 'Communauté de 2 M€, conjoint de 75 ans (usufruit 30 %), 2 enfants : 350 000 € de nue-propriété chacun, 48 194 € de droits par enfant.',
 });
 

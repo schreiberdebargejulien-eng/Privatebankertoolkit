@@ -51,6 +51,24 @@ describe('describeElement', () => {
   });
 });
 
+describe('describeElement — conteneurs', () => {
+  it('nomme une carte cliquée par son titre, sans recopier tout son texte', () => {
+    const card = el('div', {}, [el('div', {}, [el('div', {}, [el('h3', {}, ['Classes d’actifs'])])]), el('div', {}, ['Montant', '€'])]);
+    el('section', { 'aria-label': 'Paramètres de la simulation' }, [card]);
+    expect(describeElement(card)).toEqual(['Paramètres de la simulation', '« Classes d’actifs »']);
+  });
+  it('utilise la première ligne du texte rendu', () => {
+    const tile = el('a', {}, ['Produits structurés', 'Autocall, Phoenix']);
+    (tile as { innerText?: string }).innerText = 'Produits structurés\nAutocall, Phoenix';
+    el('div', {}, [tile]);
+    expect(describeElement(tile)).toEqual(['Lien « Produits structurés Autocall, Phoenix »']);
+    const div = el('div', {}, ['Produits structurés', 'Autocall']);
+    (div as { innerText?: string }).innerText = 'Produits structurés\nAutocall';
+    el('div', {}, [div]);
+    expect(describeElement(div)).toEqual(['« Produits structurés »']);
+  });
+});
+
 describe('buildSelector', () => {
   it('s’arrête sur un identifiant et privilégie les repères data-dev', () => {
     const { input } = simTree();

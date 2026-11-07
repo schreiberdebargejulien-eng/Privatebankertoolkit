@@ -4,7 +4,7 @@ import { defineSim, currentPFU, taxFields, taxDefaults, resolveTax, taxRegimeOpt
 import type { FieldDef } from '../types';
 import { money, pct, years as fmtYears } from '@/lib/format';
 import { DonutChart, LineSeriesChart } from '@/components/charts';
-import { Button, FormCard } from '@/components/ui/primitives';
+import { Button, FormCard, LineItem } from '@/components/ui/primitives';
 import { NumberInput, TextInput } from '@/components/ui/fields';
 
 export const projection = defineSim('projection', {
@@ -67,19 +67,20 @@ export const allocation = defineSim('allocation', {
     const upd = (k: number, p: Partial<ALine>) => set({ lines: lines.map((l, i) => (i === k ? { ...l, ...p } : l)) });
     return (
       <FormCard title="Classes d’actifs">
-        <div className="space-y-4">
+        <div className="space-y-3">
           {lines.map((l, k) => (
-            <div key={k} className="space-y-2.5 pb-4 border-b border-line last:border-0 last:pb-0">
-              <div className="flex gap-2 items-center">
-                <div className="flex-1"><TextInput value={l.label} maxLength={30} onChange={(label) => upd(k, { label })} /></div>
-                <Button variant="ghost" size="icon" aria-label="Supprimer" disabled={lines.length <= 1} onClick={() => set({ lines: lines.filter((_, i) => i !== k) })}><Trash2 className="h-4 w-4 text-muted" /></Button>
-              </div>
+            <LineItem
+              key={k}
+              index={k + 1}
+              title={<TextInput value={l.label} maxLength={30} onChange={(label) => upd(k, { label })} />}
+              action={<Button variant="ghost" size="icon" aria-label="Supprimer la classe" disabled={lines.length <= 1} onClick={() => set({ lines: lines.filter((_, i) => i !== k) })}><Trash2 className="h-4 w-4 text-muted" /></Button>}
+            >
               <div className="grid grid-cols-2 sm:grid-cols-[1.6fr_1fr_1fr] gap-2 [&>*:first-child]:col-span-2 sm:[&>*:first-child]:col-span-1">
                 <label className="block space-y-1.5 text-[12px] font-medium text-muted"><span>Montant</span><NumberInput value={l.amount} suffix="€" onChange={(amount) => upd(k, { amount })} /></label>
                 <label className="block space-y-1.5 text-[12px] font-medium text-muted"><span>Cible</span><NumberInput value={l.target} scale={100} suffix="%" onChange={(target) => upd(k, { target })} /></label>
                 <label className="block space-y-1.5 text-[12px] font-medium text-muted"><span>Rdt espéré</span><NumberInput value={l.expectedReturn} scale={100} suffix="%" onChange={(expectedReturn) => upd(k, { expectedReturn })} /></label>
               </div>
-            </div>
+            </LineItem>
           ))}
         </div>
         {lines.length < 7 && <Button variant="subtle" className="mt-4 w-full" onClick={() => set({ lines: [...lines, { label: 'Nouvelle classe', amount: 0, target: 0, expectedReturn: 0 }] })}><Plus className="h-4 w-4" /> Ajouter une classe</Button>}
