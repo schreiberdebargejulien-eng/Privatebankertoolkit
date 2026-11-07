@@ -51,6 +51,15 @@ src/
 | Fiscalité des placements | PFU = 12,8 % + PS ; barème = TMI + PS − TMI × 6,8 % (CSG déductible) ; PEA : PFU avant 5 ans, PS seuls après, imposition au retrait ; IS 25 % / 15 % sans PS ; CAT à l’IS : intérêts courus imposés par exercice. |
 | Garanties | sommes garanties = capital × (1 + accessoires) ; TPF 0,715 % (hypothèque seulement) ; CSI 0,05 % ; émoluments notariaux dégressifs + TVA. |
 
+## Design system (interface)
+
+- **Jetons** : `src/styles/index.css` (variables CSS RVB, clair et sombre) référencés par `tailwind.config.js` — couleurs (`bg`, `surface`, `surface2`, `sunken`, `fg`, `muted`, `faint`, `line`, `accent` #315E91, `pos`, `neg`, `warn`), ombres `shadow-xs…lg`, rayons, courbe `ease-apple`, animations (`fade-up`, `scale-in`, `value-in`, `value-flash`). Ne pas coder de couleur en dur dans un composant.
+- **Primitives** : `src/components/ui/primitives.tsx` (`Button`, `Card`, `FormCard`, `SectionTitle`, `Eyebrow`, `IconTile`, `Badge`, `EmptyState`, `Kbd`, `MINI_LABEL`) et `fields.tsx` (champs). Les fiches n'utilisent que ces composants.
+- **Navigation** : `components/layout/AppShell.tsx` — menu latéral réductible (≥ 1024 px), rail d'icônes (768–1023 px), barre d'onglets (< 768 px) ; palette de commande `CommandPalette.tsx` (⌘K / Ctrl+K / « / »). Préférences d'interface stockées sous `pbt.ui.*`.
+- **Template de simulateur** : `components/sim/SimulatorPage.tsx` (saisie à gauche, résultats collants à droite, actions dans la barre supérieure sur ordinateur, résultat flottant sur mobile) et `ResultBlocks.tsx` (rendu écran du `Report`, mise en évidence des valeurs modifiées).
+- **Graphiques** : palette catégorielle de `components/charts.tsx` validée (luminance, chroma, séparation daltonisme, contraste) en clair et en sombre ; ordre fixe.
+- **Mouvement** : animations courtes (≤ 500 ms) ; `prefers-reduced-motion` les neutralise globalement (CSS) et désactive celles de Recharts.
+
 ## Tests
 `npm test` : 170 tests dont références externes (Excel XIRR, PRICE, YIELD), calculs fiscaux posés à la main (IR avec décote et plafonnement QF, IFI avec décote et limitation des dettes, droits de donation avec rappel fiscal, succession, assurance-vie avant/après 2017 et seuil de 150 000 €), CAT, frais de garantie, régimes fiscaux des placements, et un test de non-régression qui exécute chaque fiche avec ses valeurs par défaut et sous chaque régime fiscal.
 

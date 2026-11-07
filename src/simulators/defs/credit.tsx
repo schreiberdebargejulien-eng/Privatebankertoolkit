@@ -3,7 +3,7 @@ import { calculateAmortization, calculateGuarantee, type GuaranteeResult, calcul
 import { defineSim } from '../helpers';
 import { money, pct, num } from '@/lib/format';
 import { BarSeriesChart, LineSeriesChart } from '@/components/charts';
-import { Badge, Button, Card } from '@/components/ui/primitives';
+import { Badge, Button, Card, FormCard } from '@/components/ui/primitives';
 import { NumberInput, TextInput } from '@/components/ui/fields';
 import type { FieldDef, Values } from '../types';
 
@@ -227,25 +227,24 @@ type Line = { label: string; value: number | null; advanceRate: number | null; s
 const AssetLinesEditor = ({ lines, onChange, cols }: { lines: Line[]; onChange: (l: Line[]) => void; cols: 'lombard' | 'pledge' }) => {
   const upd = (k: number, p: Partial<Line>) => onChange(lines.map((x, i) => (i === k ? { ...x, ...p } : x)));
   return (
-    <Card className="p-4">
-      <div className="text-[12px] font-semibold uppercase tracking-[0.08em] text-accent mb-3">{cols === 'lombard' ? 'Composition du portefeuille nanti' : 'Actifs remis en garantie'}</div>
+    <FormCard title={cols === 'lombard' ? 'Composition du portefeuille nanti' : 'Actifs remis en garantie'}>
       <div className="space-y-4">
         {lines.map((l, k) => (
-          <div key={k} className="space-y-2 pb-3 border-b border-line/60 last:border-0 last:pb-0">
+          <div key={k} className="space-y-2.5 pb-4 border-b border-line last:border-0 last:pb-0">
             <div className="flex gap-2 items-center">
               <div className="flex-1"><TextInput value={l.label} onChange={(label) => upd(k, { label })} maxLength={40} /></div>
               <Button variant="ghost" size="icon" aria-label="Supprimer la ligne" onClick={() => onChange(lines.filter((_, i) => i !== k))} disabled={lines.length <= 1}><Trash2 className="h-4 w-4 text-muted" /></Button>
             </div>
-            <div className={cols === 'lombard' ? 'grid grid-cols-[1.6fr_1fr_1fr] gap-2' : 'grid grid-cols-[1.6fr_1fr] gap-2'}>
-              <label className="text-[11px] text-muted space-y-1"><span>Valeur</span><NumberInput value={l.value} onChange={(value) => upd(k, { value })} suffix="€" /></label>
-              <label className="text-[11px] text-muted space-y-1"><span>{cols === 'lombard' ? 'Avance' : 'Décote'}</span><NumberInput value={cols === 'lombard' ? l.advanceRate : l.advanceRate === null ? null : 1 - l.advanceRate} scale={100} suffix="%" onChange={(x) => upd(k, { advanceRate: x === null ? null : cols === 'lombard' ? x : 1 - x })} /></label>
-              {cols === 'lombard' && <label className="text-[11px] text-muted space-y-1"><span>Sensibilité β</span><NumberInput value={l.sensitivity} onChange={(sensitivity) => upd(k, { sensitivity })} /></label>}
+            <div className={cols === 'lombard' ? 'grid grid-cols-2 sm:grid-cols-[1.6fr_1fr_1fr] gap-2 [&>*:first-child]:col-span-2 sm:[&>*:first-child]:col-span-1' : 'grid grid-cols-[1.6fr_1fr] gap-2'}>
+              <label className="block space-y-1.5 text-[12px] font-medium text-muted"><span>Valeur</span><NumberInput value={l.value} onChange={(value) => upd(k, { value })} suffix="€" /></label>
+              <label className="block space-y-1.5 text-[12px] font-medium text-muted"><span>{cols === 'lombard' ? 'Avance' : 'Décote'}</span><NumberInput value={cols === 'lombard' ? l.advanceRate : l.advanceRate === null ? null : 1 - l.advanceRate} scale={100} suffix="%" onChange={(x) => upd(k, { advanceRate: x === null ? null : cols === 'lombard' ? x : 1 - x })} /></label>
+              {cols === 'lombard' && <label className="block space-y-1.5 text-[12px] font-medium text-muted"><span>Sensibilité β</span><NumberInput value={l.sensitivity} onChange={(sensitivity) => upd(k, { sensitivity })} /></label>}
             </div>
           </div>
         ))}
       </div>
-      <Button className="mt-3 w-full" onClick={() => onChange([...lines, { label: 'Autre actif', value: 0, advanceRate: 0.5, sensitivity: 1 }])}><Plus className="h-4 w-4" /> Ajouter une classe d’actifs</Button>
-    </Card>
+      <Button variant="subtle" className="mt-4 w-full" onClick={() => onChange([...lines, { label: 'Autre actif', value: 0, advanceRate: 0.5, sensitivity: 1 }])}><Plus className="h-4 w-4" /> Ajouter une classe d’actifs</Button>
+    </FormCard>
   );
 };
 const checkLines = (lines: Line[]) => {
@@ -297,8 +296,8 @@ export const lombard = defineSim('lombard', {
         warnings: r.warnings,
       },
       extra: (
-        <Card className="p-4">
-          <div className="text-[13px] font-semibold mb-3">Statut par scénario</div>
+        <Card className="p-4 md:p-5">
+          <div className="text-[14px] font-semibold tracking-tight mb-3">Statut par scénario</div>
           <div className="grid grid-cols-5 gap-1.5 text-center">
             {r.scenarios.map((s) => (
               <div key={s.shock} className="space-y-1.5">
