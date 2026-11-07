@@ -36,9 +36,10 @@ export function toggleSign(s: string): string {
 /**
  * Champ numérique tactile : clavier décimal iOS, séparateurs français, suffixe d'unité.
  * Le clavier décimal mobile n’offre pas de signe moins : un bouton « ± » placé dans le champ
- * inverse le signe sans fermer le clavier (le focus reste sur la saisie).
+ * inverse le signe sans fermer le clavier (le focus reste sur la saisie). Par défaut, il n’est
+ * affiché que sur les champs en pourcentage ; `signButton` permet de le forcer ou de le masquer.
  */
-export function NumberInput({ value, onChange, suffix, scale = 1, id, allowNegative = true, placeholder }: {
+export function NumberInput({ value, onChange, suffix, scale = 1, id, allowNegative = true, signButton, placeholder }: {
   value: number | null | undefined;
   onChange: (v: number | null) => void;
   suffix?: string;
@@ -46,8 +47,11 @@ export function NumberInput({ value, onChange, suffix, scale = 1, id, allowNegat
   scale?: number;
   id?: string;
   allowNegative?: boolean;
+  /** Affiche le bouton « ± » (par défaut : seulement pour un suffixe « % »). */
+  signButton?: boolean;
   placeholder?: string;
 }) {
+  const showSign = allowNegative && (signButton ?? suffix === '%');
   const toDisplay = (v: number | null | undefined) => (v === null || v === undefined || !Number.isFinite(v) ? '' : fmt.format(Math.round(v * scale * 1e8) / 1e8));
   const [focused, setFocused] = useState(false);
   const [text, setText] = useState(toDisplay(value));
@@ -73,7 +77,7 @@ export function NumberInput({ value, onChange, suffix, scale = 1, id, allowNegat
 
   return (
     <div className="relative">
-      {allowNegative && (
+      {showSign && (
         <button
           type="button"
           aria-label="Changer le signe (positif / négatif)"
@@ -89,7 +93,7 @@ export function NumberInput({ value, onChange, suffix, scale = 1, id, allowNegat
       <input
         ref={inputRef}
         id={id}
-        className={cn(inputBase, 'tnum', allowNegative && 'pl-12', suffix && (suffix.length <= 2 ? 'pr-8' : 'pr-14'))}
+        className={cn(inputBase, 'tnum', showSign && 'pl-12', suffix && (suffix.length <= 2 ? 'pr-8' : 'pr-14'))}
         inputMode="decimal"
         enterKeyHint="done"
         autoComplete="off"

@@ -76,7 +76,7 @@ export const xirr = defineSim('xirr', {
           {flows.map((f, k) => (
             <div key={k} className="grid grid-cols-[1fr_1fr_auto] gap-2 items-center">
               <DateInput value={f.date} onChange={(date) => upd(k, { date })} />
-              <NumberInput value={f.amount} onChange={(amount) => upd(k, { amount })} suffix="€" />
+              <NumberInput value={f.amount} onChange={(amount) => upd(k, { amount })} suffix="€" signButton />
               <Button variant="ghost" size="icon" aria-label="Supprimer le flux" onClick={() => set({ flows: flows.filter((_, i) => i !== k) })} disabled={flows.length <= 2}><Trash2 className="h-4 w-4 text-muted" /></Button>
             </div>
           ))}
