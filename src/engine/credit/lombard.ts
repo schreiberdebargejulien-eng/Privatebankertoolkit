@@ -11,7 +11,7 @@ import { safeDiv } from '../core/math';
  * Seuils (exprimés en % de la valeur de prêt) : alerte (ex. 90 %), appel de marge (100 %),
  * liquidation (ex. 110 %). Ces seuils sont contractuels et propres à chaque établissement.
  *
- * Choc de marché : chaque classe subit choc × sensibilité_i (β simplifié saisi par l'utilisateur).
+ * Choc de marché : chaque classe subit choc × sensibilité_i (β simplifié, déduit du SRI par `sriSensitivity`).
  * Baisse de marché maximale avant seuil : résolue analytiquement (fonction linéaire du choc).
  */
 export const assetLineSchema = z.object({
@@ -32,16 +32,56 @@ export const lombardSchema = z.object({
 }).refine((v) => v.alertThreshold <= v.marginCallThreshold && v.marginCallThreshold <= v.liquidationThreshold, { message: 'Les seuils doivent être croissants : alerte ≤ appel de marge ≤ liquidation' });
 export type LombardInput = z.input<typeof lombardSchema>;
 
-export const DEFAULT_LOMBARD_CLASSES = [
-  { label: 'Liquidités', value: 0, advanceRate: 0.95, sensitivity: 0 },
-  { label: 'Monétaire', value: 0, advanceRate: 0.9, sensitivity: 0 },
-  { label: 'Obligations Investment Grade', value: 0, advanceRate: 0.8, sensitivity: 0.3 },
-  { label: 'Obligations High Yield', value: 0, advanceRate: 0.5, sensitivity: 0.6 },
-  { label: 'Actions grandes capitalisations', value: 0, advanceRate: 0.6, sensitivity: 1 },
-  { label: 'Fonds diversifiés', value: 0, advanceRate: 0.6, sensitivity: 0.6 },
-  { label: 'Produits structurés', value: 0, advanceRate: 0.5, sensitivity: 0.8 },
-  { label: 'Private equity / non coté', value: 0, advanceRate: 0, sensitivity: 1 },
+/**
+ * SRI (indicateur synthétique de risque PRIIPs, échelle 1 à 7) → sensibilité au choc de marché.
+ * Convention de l'outil : le choc saisi est celui d'un portefeuille actions (SRI 5 ⇒ β = 1) ;
+ * les autres classes en subissent une fraction croissante avec le SRI, d'après les bandes de
+ * volatilité PRIIPs (1 : < 0,5 % ; 2 : 0,5–5 % ; 3 : 5–12 % ; 4 : 12–20 % ; 5 : 20–30 % ; 6 : 30–80 % ; 7 : > 80 %).
+ */
+export const SRI_SENSITIVITY: Record<number, number> = { 1: 0, 2: 0.15, 3: 0.35, 4: 0.7, 5: 1, 6: 1.4, 7: 2 };
+export function sriSensitivity(sri: number): number {
+  const k = Math.min(7, Math.max(1, Math.round(sri)));
+  return SRI_SENSITIVITY[k];
+}
+
+export interface LombardAssetClass {
+  id: string;
+  label: string;
+  /** Ratio d'avance indicatif (valeur de prêt / valeur de marché). */
+  advanceRate: number;
+  /** SRI type de la classe (1 à 7), modifiable ligne par ligne. */
+  sri: number;
+}
+
+/** Classes d'actifs proposées, avec ratio d'avance et SRI indicatifs (à aligner sur la politique de crédit). */
+export const LOMBARD_ASSET_CLASSES: LombardAssetClass[] = [
+  { id: 'cash-eur', label: 'Liquidités en euros', advanceRate: 0.95, sri: 1 },
+  { id: 'cash-fx', label: 'Liquidités en devises', advanceRate: 0.85, sri: 2 },
+  { id: 'money-market', label: 'Fonds monétaires', advanceRate: 0.9, sri: 1 },
+  { id: 'euro-fund', label: 'Assurance-vie — fonds euros', advanceRate: 0.9, sri: 1 },
+  { id: 'gov-bonds', label: 'Obligations d’État zone euro', advanceRate: 0.85, sri: 2 },
+  { id: 'ig-bonds', label: 'Obligations Investment Grade', advanceRate: 0.8, sri: 2 },
+  { id: 'ig-funds', label: 'Fonds obligataires Investment Grade', advanceRate: 0.75, sri: 2 },
+  { id: 'hy-bonds', label: 'Obligations High Yield', advanceRate: 0.5, sri: 3 },
+  { id: 'em-bonds', label: 'Fonds obligataires émergents / High Yield', advanceRate: 0.5, sri: 3 },
+  { id: 'convertibles', label: 'Obligations convertibles', advanceRate: 0.6, sri: 3 },
+  { id: 'balanced-low', label: 'Fonds diversifiés prudents', advanceRate: 0.7, sri: 3 },
+  { id: 'balanced-mid', label: 'Fonds diversifiés équilibrés', advanceRate: 0.6, sri: 4 },
+  { id: 'balanced-high', label: 'Fonds diversifiés dynamiques', advanceRate: 0.55, sri: 4 },
+  { id: 'equity-funds', label: 'Fonds / ETF actions internationales', advanceRate: 0.6, sri: 4 },
+  { id: 'large-caps', label: 'Actions grandes capitalisations (titres vifs)', advanceRate: 0.6, sri: 5 },
+  { id: 'small-caps', label: 'Actions petites et moyennes capitalisations', advanceRate: 0.4, sri: 5 },
+  { id: 'em-equity', label: 'Actions marchés émergents', advanceRate: 0.4, sri: 5 },
+  { id: 'structured-protected', label: 'Produits structurés à capital protégé', advanceRate: 0.7, sri: 2 },
+  { id: 'structured', label: 'Produits structurés (Autocall, Phoenix…)', advanceRate: 0.5, sri: 4 },
+  { id: 'alternative', label: 'Gestion alternative / hedge funds', advanceRate: 0.4, sri: 4 },
+  { id: 'real-estate-funds', label: 'SCPI / OPCI / immobilier coté', advanceRate: 0.4, sri: 3 },
+  { id: 'gold', label: 'Or et matières premières', advanceRate: 0.5, sri: 5 },
+  { id: 'private-equity', label: 'Private equity / non coté', advanceRate: 0, sri: 6 },
+  { id: 'crypto', label: 'Cryptoactifs', advanceRate: 0, sri: 7 },
+  { id: 'other', label: 'Autre actif', advanceRate: 0.5, sri: 4 },
 ];
+export const lombardClass = (id: string) => LOMBARD_ASSET_CLASSES.find((c) => c.id === id);
 
 function stateAt(assets: z.infer<typeof assetLineSchema>[], shock: number, loan: number) {
   const marketValue = assets.reduce((a, x) => a + x.value * Math.max(0, 1 - shock * x.sensitivity), 0);
@@ -69,7 +109,7 @@ export function calculateLombard(raw: LombardInput) {
     return { shock: s, ...st, status: status(st.usage), excess: Math.max(0, i.loanAmount - st.lendingValue) };
   });
   if (i.loanAmount > maxLoan) warnings.push('Le montant demandé excède la valeur de prêt du portefeuille : crédit non couvert dès l’origine.');
-  if (i.assets.some((a) => a.sensitivity * 1 > 1 && a.value > 0)) warnings.push('Sensibilité > 1 : la classe baisse plus que le marché.');
+  if (i.assets.some((a) => a.sensitivity * 1 > 1 && a.value > 0)) warnings.push('Sensibilité > 1 (SRI 6 ou 7) : la classe baisse plus que le marché actions.');
   warnings.push('Ratios d’avance, sensibilités et seuils indicatifs : ils dépendent de la politique de crédit de l’établissement, de la concentration et de la liquidité des titres.');
 
   const interestPerYear = i.loanAmount * i.annualRate;

@@ -108,7 +108,7 @@ function SectionPage({ title, subtitle, groups }: { title: string; subtitle: str
 export function InvestmentsPage() {
   return (
     <SectionPage title="Investissements" subtitle="Structurés, obligations, allocation et placements" groups={[
-      { label: 'Produits structurés', ids: ['structured', 'scenarios'] },
+      { label: 'Produits structurés', ids: ['structured'] },
       { label: 'Obligations', ids: ['bond'] },
       { label: 'Allocation et placements', ids: ['allocation', 'compare', 'cat', 'net-yield', 'cap-vs-dist', 'income', 'xirr'] },
       { label: 'Levier', ids: ['lombard'] },

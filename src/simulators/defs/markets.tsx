@@ -215,31 +215,6 @@ function structuredReport(v: Values, scenarios: ScenarioResult[], pathNote: stri
   };
 }
 
-export const structured = defineSim('structured', {
-  description: 'Simulateur unique de produits structurés : Autocall / Athéna, Phoenix, Reverse convertible et capital protégé — coupons, rappel, barrières, protection, scénarios de marché et fiscalité.',
-  defaults: () => structuredDefaults('autocall'),
-  fields: [
-    ...structuredFields(),
-    { kind: 'group', label: 'Scénarios de marché' },
-    { kind: 'segmented', key: 'pathShape', label: 'Trajectoire du sous-jacent', options: [{ value: 'linear', label: 'Progressive (linéaire)' }, { value: 'immediate', label: 'Choc immédiat' }], hint: 'Progressive : le sous-jacent atteint la performance finale à l’échéance. Choc immédiat : niveau constant dès la 1re observation.' },
-    ...taxFields({ pea: true }),
-  ],
-  compute: (v) => {
-    const scenarios = calculateAutocall(v as never, v.pathShape);
-    const note = v.pathShape === 'immediate' ? 'Scénarios « choc immédiat » : le sous-jacent est au niveau final dès la première observation et y reste.' : 'Scénarios « progressifs » : le sous-jacent évolue linéairement de 100 % jusqu’au niveau final à la dernière observation (un scénario de hausse est donc rappelé dès que le niveau franchit la barrière).';
-    return structuredReport(v, scenarios, note);
-  },
-  formula: [
-    'Autocall : rappel à l’obs. k si S_k ≥ B_rappel(k) → capital + coupon × k (mémoire) ou × 1 ; échéance : S_N ≥ B_coupon → capital + coupons',
-    'Phoenix : coupon_k = c/f × (1 + coupons manqués si mémoire) si S_k ≥ B_coupon ; rappel si S_k ≥ B_rappel(k)',
-    'Reverse convertible : coupon_k = C × c / f (inconditionnel)',
-    'Échéance (barrière) : S_N ≥ B_protection → C ; sinon C × S_N / strike',
-    'Capital protégé : C × max(protection ; min(1 + participation × (S_N − 1) ; plafond))',
-    'Net : coupons et plus-value × (1 − t) au fil de l’eau, ou gain global × (1 − t) à la sortie (PEA)',
-  ],
-  example: 'Autocall coupon 10 %/an, rappel à 100 % : un sous-jacent à 90 %, 95 % puis 105 % déclenche un rappel en année 3 avec 30 % de coupons cumulés.',
-});
-
 /* ======================= Simulateur de scénarios personnalisés ======================= */
 function TrajectoryForm({ values, set }: { values: Values; set: (p: Values) => void }) {
   let dates: string[] = [];
@@ -282,38 +257,72 @@ function TrajectoryForm({ values, set }: { values: Values; set: (p: Values) => v
   );
 }
 
-export const scenarios = defineSim('scenarios', {
-  description: 'Définissez vous-même le niveau du sous-jacent à chaque date d’observation — ou générez une trajectoire volatile calée sur une perte ou un gain cible — et comparez-la aux scénarios standards.',
-  defaults: () => ({ ...structuredDefaults('phoenix'), maturityYears: 5, observationsPerYear: 1, firstCallObservation: 1, customPath: [0.95, 0.82, 0.68, 0.74, 0.88], volTarget: -0.1, volSigma: 0.2, volSeed: 1 }),
-  fields: [...structuredFields(), ...taxFields({ pea: true })],
-  customForm: (p) => <TrajectoryForm {...p} />,
+/** Trajectoires de marché proposées par la fiche unique. */
+const PATH_OPTIONS = [
+  { value: 'linear', label: 'Progressive (linéaire)' },
+  { value: 'immediate', label: 'Choc immédiat' },
+  { value: 'custom', label: 'Personnalisée' },
+];
+const isCustomPath = (v: Values) => v.pathShape === 'custom';
+
+/** Scénario de la trajectoire saisie, comparé à trois scénarios progressifs standards. */
+function computeCustom(v: Values) {
+  const p = validate(structuredSchema, v);
+  const n = observationDates(p).length;
+  if (n > 60) throw new ValidationError(['Maximum 60 observations pour une trajectoire personnalisée']);
+  const path: (number | null)[] = Array.from({ length: n }, (_, k) => v.customPath?.[k] ?? 1);
+  if (path.some((x) => x === null)) throw new ValidationError(['Renseignez le niveau de chaque observation']);
+  const custom = runStructured(p, path as number[], 'Trajectoire personnalisée');
+  const std = STANDARD_SCENARIOS.filter((s) => [0, -0.2, -0.4].includes(s.perf)).map((s) => runStructured(p, buildPath(s.perf, n, 'linear'), s.label));
+  const out = structuredReport(v, [custom, ...std], 'Trajectoire personnalisée saisie observation par observation (ou générée : marche aléatoire log-normale calée sur la performance cible par pont brownien), comparée à trois scénarios progressifs standards.');
+  const t = resolveTax(v, custom.durationYears);
+  const net = taxStructuredScenario(custom, p.capital, p.observationsPerYear, t.rate, t.exitOnly);
+  out.report.headline = { label: 'Trajectoire personnalisée — total perçu', value: money(custom.totalReceived), tone: custom.capitalLoss ? 'neg' : 'pos', sub: `${custom.redeemedEarly ? `Rappel le ${dateFR(custom.redemptionDate)}` : `Échéance le ${dateFR(custom.redemptionDate)}`} · TRI ${pct(custom.annualizedReturn)}${v.taxRegime !== 'none' ? ` · net ${money(net.netReceived)} (TRI net ${pct(net.netIRR)})` : ''}` };
+  const showCoupon = p.productType === 'autocall' || p.productType === 'phoenix';
+  const showProt = p.productType !== 'capital-protected';
+  return {
+    ...out,
+    chart: (
+      <div className="space-y-4">
+        <LineSeriesChart title="Trajectoire et barrières" x="obs" xLabel={(o) => `Observation ${o}`} valueFormat={(x) => pct(x, 1)} yFormat={(x) => pct(x, 0)} data={path.map((l, k) => ({ obs: k + 1, level: l as number, coupon: showCoupon ? p.couponBarrier : NaN, protection: showProt ? p.protectionBarrier : NaN }))} series={[{ key: 'level', label: 'Sous-jacent' }, ...(showCoupon ? [{ key: 'coupon', label: 'Barrière de coupon' }] : []), ...(showProt ? [{ key: 'protection', label: 'Barrière de protection' }] : [])]} />
+        {out.chart}
+      </div>
+    ),
+  };
+}
+
+/**
+ * Fiche unique des produits structurés : caractéristiques du produit, puis scénarios de marché
+ * standards (progressifs ou choc immédiat) ou trajectoire personnalisée / volatile.
+ * Remplace l'ancien « Simulateur de scénarios » (alias `scenarios`).
+ */
+export const structured = defineSim('structured', {
+  description: 'Outil unique pour les produits structurés : Autocall / Athéna, Phoenix, Reverse convertible et capital protégé — coupons, rappel, barrières, protection et fiscalité, testés sur des scénarios de marché standards ou sur votre propre trajectoire (saisie point par point ou volatile).',
+  defaults: () => ({ ...structuredDefaults('autocall'), customPath: [0.95, 0.82, 0.68, 0.74, 0.88, 0.92, 0.97, 1.02], volTarget: -0.1, volSigma: 0.2, volSeed: 1 }),
+  fields: [
+    ...structuredFields(),
+    ...taxFields({ pea: true }),
+    { kind: 'group', label: 'Scénarios de marché' },
+    { kind: 'segmented', key: 'pathShape', label: 'Trajectoire du sous-jacent', options: PATH_OPTIONS, hint: 'Progressive : le sous-jacent atteint la performance finale à l’échéance. Choc immédiat : niveau constant dès la 1re observation. Personnalisée : niveau saisi à chaque observation ou trajectoire volatile générée.' },
+  ],
+  customForm: (p) => (isCustomPath(p.values) ? <TrajectoryForm {...p} /> : null),
   compute: (v) => {
-    const p = validate(structuredSchema, v);
-    const n = observationDates(p).length;
-    if (n > 60) throw new ValidationError(['Maximum 60 observations pour le simulateur personnalisé']);
-    const path: (number | null)[] = Array.from({ length: n }, (_, k) => v.customPath?.[k] ?? 1);
-    if (path.some((x) => x === null)) throw new ValidationError(['Renseignez le niveau de chaque observation']);
-    const custom = runStructured(p, path as number[], 'Trajectoire personnalisée');
-    const std = STANDARD_SCENARIOS.filter((s) => [0, -0.2, -0.4].includes(s.perf)).map((s) => runStructured(p, buildPath(s.perf, n, 'linear'), s.label));
-    const out = structuredReport(v, [custom, ...std], 'Trajectoire personnalisée saisie observation par observation (ou générée : marche aléatoire log-normale calée sur la performance cible par pont brownien), comparée à trois scénarios progressifs standards.');
-    const t = resolveTax(v, custom.durationYears);
-    const net = taxStructuredScenario(custom, p.capital, p.observationsPerYear, t.rate, t.exitOnly);
-    out.report.headline = { label: 'Trajectoire personnalisée — total perçu', value: money(custom.totalReceived), tone: custom.capitalLoss ? 'neg' : 'pos', sub: `${custom.redeemedEarly ? `Rappel le ${dateFR(custom.redemptionDate)}` : `Échéance le ${dateFR(custom.redemptionDate)}`} · TRI ${pct(custom.annualizedReturn)}${v.taxRegime !== 'none' ? ` · net ${money(net.netReceived)} (TRI net ${pct(net.netIRR)})` : ''}` };
-    const showCoupon = p.productType === 'autocall' || p.productType === 'phoenix';
-    const showProt = p.productType !== 'capital-protected';
-    return {
-      ...out,
-      chart: (
-        <div className="space-y-4">
-          <LineSeriesChart title="Trajectoire et barrières" x="obs" xLabel={(o) => `Observation ${o}`} valueFormat={(x) => pct(x, 1)} yFormat={(x) => pct(x, 0)} data={path.map((l, k) => ({ obs: k + 1, level: l as number, coupon: showCoupon ? p.couponBarrier : NaN, protection: showProt ? p.protectionBarrier : NaN }))} series={[{ key: 'level', label: 'Sous-jacent' }, ...(showCoupon ? [{ key: 'coupon', label: 'Barrière de coupon' }] : []), ...(showProt ? [{ key: 'protection', label: 'Barrière de protection' }] : [])]} />
-          {out.chart}
-        </div>
-      ),
-    };
+    if (isCustomPath(v)) return computeCustom(v);
+    const scenarios = calculateAutocall(v as never, v.pathShape);
+    const note = v.pathShape === 'immediate' ? 'Scénarios « choc immédiat » : le sous-jacent est au niveau final dès la première observation et y reste.' : 'Scénarios « progressifs » : le sous-jacent évolue linéairement de 100 % jusqu’au niveau final à la dernière observation (un scénario de hausse est donc rappelé dès que le niveau franchit la barrière).';
+    return structuredReport(v, scenarios, note);
   },
-  formula: ['Moteur identique au simulateur de produits structurés, appliqué à la trajectoire saisie.', 'Trajectoire volatile : X_k = Σ σ·√(1/f)·ε_i, L_k = X_k − (k/N)·X_N + (k/N)·ln(1 + cible), S_k = e^(L_k)'],
-  example: 'Phoenix 8 %, barrière 70 %, trajectoire 95 / 82 / 68 / 74 / 88 % : coupons aux observations 1, 2, puis 4 avec rattrapage de l’observation 3.',
+  formula: [
+    'Autocall : rappel à l’obs. k si S_k ≥ B_rappel(k) → capital + coupon × k (mémoire) ou × 1 ; échéance : S_N ≥ B_coupon → capital + coupons',
+    'Phoenix : coupon_k = c/f × (1 + coupons manqués si mémoire) si S_k ≥ B_coupon ; rappel si S_k ≥ B_rappel(k)',
+    'Reverse convertible : coupon_k = C × c / f (inconditionnel)',
+    'Échéance (barrière) : S_N ≥ B_protection → C ; sinon C × S_N / strike',
+    'Capital protégé : C × max(protection ; min(1 + participation × (S_N − 1) ; plafond))',
+    'Trajectoire volatile : X_k = Σ σ·√(1/f)·ε_i, L_k = X_k − (k/N)·X_N + (k/N)·ln(1 + cible), S_k = e^(L_k)',
+    'Net : coupons et plus-value × (1 − t) au fil de l’eau, ou gain global × (1 − t) à la sortie (PEA)',
+  ],
+  example: 'Autocall coupon 10 %/an, rappel à 100 % : un sous-jacent à 90 %, 95 % puis 105 % déclenche un rappel en année 3 avec 30 % de coupons cumulés.',
 });
 
-export const marketSims = [bond, structured, scenarios];
+export const marketSims = [bond, structured];
 export { cn };

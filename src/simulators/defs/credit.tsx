@@ -1,10 +1,10 @@
 import { Plus, Trash2 } from 'lucide-react';
-import { calculateAmortization, calculateGuarantee, type GuaranteeResult, calculateLoanCapacity, calculateInFine, calculateLombard, calculatePledge, DEFAULT_LOMBARD_CLASSES, ValidationError } from '@/engine';
+import { calculateAmortization, calculateGuarantee, type GuaranteeResult, calculateLoanCapacity, calculateInFine, calculateLombard, calculatePledge, LOMBARD_ASSET_CLASSES, SRI_SENSITIVITY, lombardClass, sriSensitivity, ValidationError } from '@/engine';
 import { defineSim } from '../helpers';
 import { money, pct, num } from '@/lib/format';
 import { BarSeriesChart, LineSeriesChart } from '@/components/charts';
-import { Badge, Button, Card, FormCard } from '@/components/ui/primitives';
-import { NumberInput, TextInput } from '@/components/ui/fields';
+import { Badge, Button, Card, FormCard, LineItem } from '@/components/ui/primitives';
+import { NumberInput, Select, TextInput } from '@/components/ui/fields';
 import type { FieldDef, Values } from '../types';
 
 /* ------------------------------ Garanties ------------------------------ */
@@ -223,32 +223,50 @@ export const guarantee = defineSim('guarantee', {
 });
 
 /* ------------------------------ Lombard ------------------------------ */
-type Line = { label: string; value: number | null; advanceRate: number | null; sensitivity: number | null };
-const AssetLinesEditor = ({ lines, onChange, cols }: { lines: Line[]; onChange: (l: Line[]) => void; cols: 'lombard' | 'pledge' }) => {
+/** Ligne d'actif : classe choisie dans la liste, ratio d'avance et SRI pré-remplis puis modifiables. */
+type Line = { classId: string; label: string; value: number | null; advanceRate: number | null; sri: number | null };
+const CLASS_OPTIONS = LOMBARD_ASSET_CLASSES.map((c) => ({ value: c.id, label: c.label }));
+const SRI_OPTIONS = [1, 2, 3, 4, 5, 6, 7].map((k) => ({ value: k, label: `${k}/7` }));
+const lineFromClass = (id: string, value: number): Line => {
+  const c = lombardClass(id) ?? lombardClass('other')!;
+  return { classId: c.id, label: c.label, value, advanceRate: c.advanceRate, sri: c.sri };
+};
+/** Reprend les lignes d'anciens liens partagés (libellé libre et sensibilité β) dans le nouveau format. */
+const normalizeLines = (lines: (Partial<Line> & { sensitivity?: number | null })[]): Line[] => lines.map((l) => {
+  const known = LOMBARD_ASSET_CLASSES.find((c) => c.id === l.classId || c.label === l.label);
+  const sriFromBeta = l.sensitivity === null || l.sensitivity === undefined ? undefined : Number(Object.entries(SRI_SENSITIVITY).reduce((a, b) => (Math.abs(b[1] - l.sensitivity!) < Math.abs(a[1] - l.sensitivity!) ? b : a))[0]);
+  return { classId: known?.id ?? 'other', label: l.label ?? known?.label ?? 'Autre actif', value: l.value ?? null, advanceRate: l.advanceRate ?? known?.advanceRate ?? null, sri: l.sri ?? sriFromBeta ?? known?.sri ?? null };
+});
+
+const AssetLinesEditor = ({ lines: raw, onChange, cols }: { lines: Line[]; onChange: (l: Line[]) => void; cols: 'lombard' | 'pledge' }) => {
+  const lines = normalizeLines(raw);
   const upd = (k: number, p: Partial<Line>) => onChange(lines.map((x, i) => (i === k ? { ...x, ...p } : x)));
+  const label = 'block space-y-1.5 text-[12px] font-medium text-muted';
   return (
-    <FormCard title={cols === 'lombard' ? 'Composition du portefeuille nanti' : 'Actifs remis en garantie'}>
-      <div className="space-y-4">
+    <FormCard title={cols === 'lombard' ? 'Composition du portefeuille nanti' : 'Actifs remis en garantie'} description={cols === 'lombard' ? 'Choisissez la classe d’actifs : ratio d’avance et SRI sont pré-remplis et restent modifiables.' : 'Choisissez la classe d’actifs : la décote est pré-remplie et reste modifiable.'}>
+      <div className="space-y-3">
         {lines.map((l, k) => (
-          <div key={k} className="space-y-2.5 pb-4 border-b border-line last:border-0 last:pb-0">
-            <div className="flex gap-2 items-center">
-              <div className="flex-1"><TextInput value={l.label} onChange={(label) => upd(k, { label })} maxLength={40} /></div>
-              <Button variant="ghost" size="icon" aria-label="Supprimer la ligne" onClick={() => onChange(lines.filter((_, i) => i !== k))} disabled={lines.length <= 1}><Trash2 className="h-4 w-4 text-muted" /></Button>
-            </div>
+          <LineItem
+            key={k}
+            index={k + 1}
+            title={<Select value={l.classId} options={CLASS_OPTIONS} onChange={(id) => upd(k, lineFromClass(id, l.value ?? 0))} />}
+            action={<Button variant="ghost" size="icon" aria-label="Supprimer la ligne" onClick={() => onChange(lines.filter((_, i) => i !== k))} disabled={lines.length <= 1}><Trash2 className="h-4 w-4 text-muted" /></Button>}
+          >
+            {l.classId === 'other' && <label className={label}><span>Libellé</span><TextInput value={l.label} onChange={(x) => upd(k, { label: x })} maxLength={40} /></label>}
             <div className={cols === 'lombard' ? 'grid grid-cols-2 sm:grid-cols-[1.6fr_1fr_1fr] gap-2 [&>*:first-child]:col-span-2 sm:[&>*:first-child]:col-span-1' : 'grid grid-cols-[1.6fr_1fr] gap-2'}>
-              <label className="block space-y-1.5 text-[12px] font-medium text-muted"><span>Valeur</span><NumberInput value={l.value} onChange={(value) => upd(k, { value })} suffix="€" /></label>
-              <label className="block space-y-1.5 text-[12px] font-medium text-muted"><span>{cols === 'lombard' ? 'Avance' : 'Décote'}</span><NumberInput value={cols === 'lombard' ? l.advanceRate : l.advanceRate === null ? null : 1 - l.advanceRate} scale={100} suffix="%" onChange={(x) => upd(k, { advanceRate: x === null ? null : cols === 'lombard' ? x : 1 - x })} /></label>
-              {cols === 'lombard' && <label className="block space-y-1.5 text-[12px] font-medium text-muted"><span>Sensibilité β</span><NumberInput value={l.sensitivity} onChange={(sensitivity) => upd(k, { sensitivity })} /></label>}
+              <label className={label}><span>Valeur</span><NumberInput value={l.value} onChange={(value) => upd(k, { value })} suffix="€" /></label>
+              <label className={label}><span>{cols === 'lombard' ? 'Ratio d’avance' : 'Décote'}</span><NumberInput value={cols === 'lombard' ? l.advanceRate : l.advanceRate === null ? null : 1 - l.advanceRate} scale={100} suffix="%" allowNegative={false} onChange={(x) => upd(k, { advanceRate: x === null ? null : cols === 'lombard' ? x : 1 - x })} /></label>
+              {cols === 'lombard' && <label className={label}><span>SRI</span><Select value={l.sri ?? 4} options={SRI_OPTIONS} onChange={(sri) => upd(k, { sri })} /></label>}
             </div>
-          </div>
+          </LineItem>
         ))}
       </div>
-      <Button variant="subtle" className="mt-4 w-full" onClick={() => onChange([...lines, { label: 'Autre actif', value: 0, advanceRate: 0.5, sensitivity: 1 }])}><Plus className="h-4 w-4" /> Ajouter une classe d’actifs</Button>
+      <Button variant="subtle" className="mt-4 w-full" onClick={() => onChange([...lines, lineFromClass('other', 0)])}><Plus className="h-4 w-4" /> Ajouter une ligne</Button>
     </FormCard>
   );
 };
-const checkLines = (lines: Line[]) => {
-  if (lines.some((l) => l.value === null || l.advanceRate === null || l.sensitivity === null)) throw new ValidationError(['Complétez la valeur, le ratio et la sensibilité de chaque ligne']);
+const checkLines = (lines: Line[], sri: boolean) => {
+  if (lines.some((l) => l.value === null || l.advanceRate === null || (sri && l.sri === null))) throw new ValidationError([sri ? 'Complétez la valeur, le ratio d’avance et le SRI de chaque ligne' : 'Complétez la valeur et la décote de chaque ligne']);
 };
 const statusBadge = (s: string) => s === 'ok' ? <Badge tone="pos">Conforme</Badge> : s === 'alert' ? <Badge tone="warn">Alerte</Badge> : s === 'margin-call' ? <Badge tone="neg">Appel de marge</Badge> : <Badge tone="neg">Liquidation</Badge>;
 const statusLabel = (s: string) => ({ ok: 'Conforme', alert: 'Alerte', 'margin-call': 'Appel de marge', liquidation: 'Liquidation' })[s] ?? s;
@@ -256,7 +274,7 @@ const statusLabel = (s: string) => ({ ok: 'Conforme', alert: 'Alerte', 'margin-c
 export const lombard = defineSim('lombard', {
   description: 'Montant empruntable sur un portefeuille nanti, LTV, coût, seuils d’alerte et de liquidation, et stress test de −10 % à −40 %.',
   defaults: () => ({
-    assets: DEFAULT_LOMBARD_CLASSES.map((c) => ({ ...c, value: ({ 'Liquidités': 200_000, 'Obligations Investment Grade': 1_500_000, 'Actions grandes capitalisations': 2_000_000, 'Fonds diversifiés': 800_000, 'Produits structurés': 500_000 } as Record<string, number>)[c.label] ?? 0 })),
+    assets: [lineFromClass('cash-eur', 200_000), lineFromClass('ig-bonds', 1_500_000), lineFromClass('large-caps', 2_000_000), lineFromClass('balanced-mid', 800_000), lineFromClass('structured', 500_000)],
     loanAmount: 2_000_000, annualRate: 0.042, years: 3, alertThreshold: 0.9, marginCallThreshold: 1, liquidationThreshold: 1.1,
   }),
   fields: [
@@ -272,8 +290,11 @@ export const lombard = defineSim('lombard', {
   customFormPosition: 'start',
   customForm: ({ values, set }) => <AssetLinesEditor cols="lombard" lines={values.assets} onChange={(assets) => set({ assets })} />,
   compute: (v) => {
-    checkLines(v.assets);
-    const r = calculateLombard({ ...v, assets: v.assets.filter((a: Line) => (a.value ?? 0) > 0), shocks: [0.1, 0.2, 0.3, 0.4] } as never);
+    const lines = normalizeLines(v.assets);
+    checkLines(lines, true);
+    const kept = lines.filter((a) => (a.value ?? 0) > 0);
+    if (!kept.length) throw new ValidationError(['Renseignez la valeur d’au moins une ligne du portefeuille']);
+    const r = calculateLombard({ ...v, assets: kept.map((a) => ({ label: a.label, value: a.value!, advanceRate: a.advanceRate!, sensitivity: sriSensitivity(a.sri!) })), shocks: [0.1, 0.2, 0.3, 0.4] } as never);
     const shockTxt = (s: number) => (Number.isFinite(s) ? `− ${pct(s, 1)}` : 'Aucune');
     return {
       report: {
@@ -290,9 +311,11 @@ export const lombard = defineSim('lombard', {
         ],
         tables: [
           { title: 'Stress test', columns: ['Choc marché', 'Valeur', 'Valeur de prêt', 'LTV', 'Utilisation', 'Statut'], rows: r.scenarios.map((s) => [s.shock === 0 ? 'Initial' : `− ${pct(s.shock, 0)}`, money(s.marketValue), money(s.lendingValue), pct(s.ltv, 1), pct(s.usage, 1), statusLabel(s.status)]) },
-          { title: 'Valeur de prêt par classe', columns: ['Classe', 'Valeur', 'Poids', 'Avance', 'Valeur de prêt'], rows: r.lines.map((l) => [l.label, money(l.value), pct(l.weight, 1), pct(l.advanceRate, 0), money(l.lendingValue)]) },
+          { title: 'Valeur de prêt par classe', columns: ['Classe', 'Valeur', 'Poids', 'Avance', 'SRI', 'Valeur de prêt'], align: ['left', 'right', 'right', 'right', 'right', 'right'], rows: r.lines.map((l, k) => [l.label, money(l.value), pct(l.weight, 1), pct(l.advanceRate, 0), `${kept[k].sri}/7`, money(l.lendingValue)]) },
         ],
-        assumptions: ['Choc appliqué à chaque classe : baisse × sensibilité β (liquidités et monétaire β = 0).', 'Utilisation = encours / valeur de prêt ; LTV = encours / valeur de marché.', 'Intérêts in fine sur l’encours constant, sans capitalisation.'],
+        assumptions: [
+          'Choc appliqué à chaque classe : baisse du marché actions × sensibilité déduite du SRI (1/7 : 0 · 2/7 : 0,15 · 3/7 : 0,35 · 4/7 : 0,7 · 5/7 : 1 · 6/7 : 1,4 · 7/7 : 2).',
+          'Ratios d’avance et SRI pré-remplis selon la classe d’actifs (valeurs indicatives), modifiables ligne par ligne : reprendre le SRI du DIC / KID de chaque support.', 'Utilisation = encours / valeur de prêt ; LTV = encours / valeur de marché.', 'Intérêts in fine sur l’encours constant, sans capitalisation.'],
         warnings: r.warnings,
       },
       extra: (
@@ -312,26 +335,23 @@ export const lombard = defineSim('lombard', {
       chart: <BarSeriesChart title="Valeur de prêt vs encours selon le choc" x="shock" valueFormat={money} data={r.scenarios.map((s) => ({ shock: s.shock === 0 ? 'Initial' : `−${Math.round(s.shock * 100)} %`, lending: s.lendingValue, loan: v.loanAmount }))} series={[{ key: 'lending', label: 'Valeur de prêt' }, { key: 'loan', label: 'Encours du crédit' }]} />,
     };
   },
-  formula: ['Valeur de prêt = Σ Vᵢ × avanceᵢ', 'LTV = encours / Σ Vᵢ', 'Choc s : Vᵢ × (1 − s × βᵢ)', 'Choc max avant seuil θ : s* = (VP₀ − encours/θ) / Σ Vᵢ·avanceᵢ·βᵢ'],
-  example: '1 M€ d’actions (60 %, β 1) + 500 k€ d’obligations (80 %, β 0,3), crédit de 600 k€ : valeur de prêt 1 M€, appel de marge après −55,6 %.',
+  formula: ['Valeur de prêt = Σ Vᵢ × avanceᵢ', 'LTV = encours / Σ Vᵢ', 'Choc s : Vᵢ × (1 − s × βᵢ), βᵢ = f(SRIᵢ)', 'Choc max avant seuil θ : s* = (VP₀ − encours/θ) / Σ Vᵢ·avanceᵢ·βᵢ'],
+  example: '1 M€ d’actions (avance 60 %, SRI 5 → β 1) + 500 k€ d’obligations Investment Grade (avance 80 %, SRI 2 → β 0,15), crédit de 600 k€ : valeur de prêt 1 M€, appel de marge après une baisse de 60,6 % (400 000 / 660 000).',
 });
 
 export const pledge = defineSim('pledge', {
   description: 'Valeur éligible d’un nantissement après décote par catégorie, et capacité de couverture d’un engagement.',
   defaults: () => ({
     exposure: 1_500_000,
-    assets: [
-      { label: 'Contrat d’assurance-vie — fonds euros', value: 800_000, advanceRate: 0.9, sensitivity: 0 },
-      { label: 'Compte-titres — actions', value: 1_000_000, advanceRate: 0.6, sensitivity: 1 },
-      { label: 'Obligations', value: 400_000, advanceRate: 0.8, sensitivity: 0.3 },
-    ],
+    assets: [lineFromClass('euro-fund', 800_000), lineFromClass('large-caps', 1_000_000), lineFromClass('ig-bonds', 400_000)],
   }),
   fields: [{ kind: 'money', key: 'exposure', label: 'Engagement à couvrir' }],
   customFormPosition: 'start',
   customForm: ({ values, set }) => <AssetLinesEditor cols="pledge" lines={values.assets} onChange={(assets) => set({ assets })} />,
   compute: (v) => {
-    checkLines(v.assets);
-    const r = calculatePledge({ exposure: v.exposure, assets: (v.assets as Line[]).map((a) => ({ label: a.label, value: a.value!, haircut: 1 - a.advanceRate! })) });
+    const lines = normalizeLines(v.assets);
+    checkLines(lines, false);
+    const r = calculatePledge({ exposure: v.exposure, assets: lines.map((a) => ({ label: a.label, value: a.value!, haircut: 1 - a.advanceRate! })) });
     return {
       report: {
         headline: { label: 'Ratio de couverture', value: Number.isFinite(r.coverageRatio) ? pct(r.coverageRatio, 1) : '∞', tone: r.covered ? 'pos' : 'neg', sub: r.covered ? `Engagement couvert · excédent ${money(r.surplus)}` : `Insuffisance de ${money(r.additionalCollateralNeeded)}` },

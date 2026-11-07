@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { calculateAmortization, calculateInFine, calculateLoanCapacity } from '../credit/loans';
-import { calculateLombard, calculatePledge } from '../credit/lombard';
+import { calculateLombard, calculatePledge, LOMBARD_ASSET_CLASSES, sriSensitivity } from '../credit/lombard';
 import { calculateBondYield } from '../bonds/bond';
 import { buildPath, calculateAutocall, runStructured, type StructuredInput } from '../structured/structured';
 import { calculateAllocation, calculateComplementaryIncome, calculatePatrimonialProjection, calculateWithdrawalPlan, compareCapitalisationDistribution } from '../wealth/wealth';
@@ -191,5 +191,30 @@ describe('Patrimoine', () => {
   it('capitalisation avantageuse avec fiscalité annuelle', () => {
     const r = compareCapitalisationDistribution({ capital: 100_000, totalReturn: 0.05, distributionRate: 0.03, distributionTax: 0.314, exitTax: 0.314, reinvest: true, years: 10 });
     expect(r.difference).toBeGreaterThan(0);
+  });
+});
+
+describe('Lombard — SRI et classes d’actifs', () => {
+  it('sensibilité croissante avec le SRI, bornée à l’échelle 1–7', () => {
+    expect(sriSensitivity(1)).toBe(0);
+    expect(sriSensitivity(5)).toBe(1);
+    expect(sriSensitivity(9)).toBe(2);
+    const v = [1, 2, 3, 4, 5, 6, 7].map(sriSensitivity);
+    expect(v.every((x, k) => k === 0 || x > v[k - 1])).toBe(true);
+  });
+  it('catalogue : identifiants uniques, ratios et SRI valides', () => {
+    const ids = LOMBARD_ASSET_CLASSES.map((c) => c.id);
+    expect(new Set(ids).size).toBe(ids.length);
+    expect(LOMBARD_ASSET_CLASSES.every((c) => c.advanceRate >= 0 && c.advanceRate <= 1 && c.sri >= 1 && c.sri <= 7)).toBe(true);
+  });
+  it('exemple de la fiche : appel de marge après 400 000 / 660 000', () => {
+    const r = calculateLombard({
+      assets: [
+        { label: 'Actions', value: 1_000_000, advanceRate: 0.6, sensitivity: sriSensitivity(5) },
+        { label: 'Obligations IG', value: 500_000, advanceRate: 0.8, sensitivity: sriSensitivity(2) },
+      ],
+      loanAmount: 600_000, annualRate: 0.04, years: 3, alertThreshold: 0.9, marginCallThreshold: 1, liquidationThreshold: 1.1,
+    });
+    expect(r.maxShockBeforeMarginCall).toBeCloseTo(400_000 / 660_000, 10);
   });
 });

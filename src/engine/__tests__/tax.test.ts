@@ -241,4 +241,44 @@ describe('Succession', () => {
     // Frère : 100 000 − 15 932 = 84 068 → 24 430 × 35 % + 59 638 × 45 %
     expect(r.heirs[2].duties).toBe(Math.round(24_430 * 0.35 + 59_638 * 0.45));
   });
+
+  // Legs (testament) — valeurs posées à la main
+  const alone = { regime: 'separation' as const, ownAssets: 500_000, commonAssets: 0, liabilities: 0, spouseAlive: false, children: 0 };
+  it('sans héritier, legs universel à un tiers : (500 000 − 1 594) × 60 % = 299 044 €', () => {
+    const r = calculateSuccession({ ...alone, legacies: [{ label: 'Ami', relationship: 'other', share: 1 }] });
+    expect(r.heirs).toHaveLength(1);
+    expect(r.heirs[0].origin).toBe('legacy');
+    expect(r.heirs[0].duties).toBe(299_044);
+    expect(r.heirs[0].basis).toMatch(/788 IV/);
+    expect(r.heirs[0].basis).toMatch(/60 %/);
+  });
+  it('neveu légataire : (300 000 − 7 967) × 55 % = 160 618 € ; handicap : + 159 325 € d’abattement', () => {
+    const base = { ...alone, ownAssets: 300_000 };
+    expect(calculateSuccession({ ...base, legacies: [{ relationship: 'nephew', share: 1 }] }).heirs[0].duties).toBe(160_618);
+    expect(calculateSuccession({ ...base, legacies: [{ relationship: 'nephew', share: 1, disabled: true }] }).heirs[0].duties).toBe(Math.round((300_000 - 7_967 - 159_325) * 0.55));
+  });
+  it('partenaire de PACS légataire : exonéré', () => {
+    const r = calculateSuccession({ ...alone, legacies: [{ relationship: 'spouse', share: 1 }] });
+    expect(r.totalDuties).toBe(0);
+    expect(r.heirs[0].basis).toMatch(/796-0 bis/);
+  });
+  it('legs excédant la quotité disponible : réduit à 1/2 avec un enfant', () => {
+    const r = calculateSuccession({ ...alone, ownAssets: 1_000_000, children: 1, legacies: [{ relationship: 'other', share: 0.8 }] });
+    expect(r.legacyReduction).toBeCloseTo(0.625, 10);
+    const [legatee, child] = r.heirs;
+    expect(legatee.value).toBeCloseTo(500_000, 6);
+    expect(legatee.duties).toBe(299_044);
+    expect(child.value).toBeCloseTo(500_000, 6);
+    expect(child.share).toBeCloseTo(0.5, 10);
+    expect(child.duties).toBe(78_194);
+    expect(r.warnings.some((w) => w.includes('réduits'))).toBe(true);
+  });
+  it('conjoint sans descendant : réserve de 1/4, legs limités à 75 %', () => {
+    const r = calculateSuccession({ ...alone, spouseAlive: true, legacies: [{ relationship: 'other', share: 1 }] });
+    expect(r.legacyShare).toBeCloseTo(0.75, 10);
+    expect(r.heirs.find((h) => h.relationship === 'spouse')!.value).toBeCloseTo(125_000, 6);
+  });
+  it('sans héritier légal, legs partiels : erreur explicite', () => {
+    expect(() => calculateSuccession({ ...alone, legacies: [{ relationship: 'other', share: 0.5 }] })).toThrow(/totalité/);
+  });
 });

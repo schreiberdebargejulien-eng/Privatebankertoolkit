@@ -1,5 +1,5 @@
 import {
-  Activity, Banknote, BarChart3, Building2, CalendarClock, Calculator, Coins, Gift, GitCompare, Home, Landmark,
+  Activity, Banknote, Building2, CalendarClock, Calculator, Coins, Gift, GitCompare, Home, Landmark,
   Layers, LineChart, Lock, PiggyBank, PieChart, Percent, Repeat, Scale, ScrollText, Shield, Sparkles, Split, TrendingUp, Users,
   Wallet, Briefcase, Hourglass, type LucideIcon,
 } from 'lucide-react';
@@ -37,7 +37,7 @@ export const SIMULATORS: SimMeta[] = [
   { id: 'cagr', title: 'CAGR', short: 'Performance annualisée entre deux valeurs', categories: ['finance'], sections: ['calculators'], keywords: ['cagr', 'performance annualisee', 'taux de croissance'], icon: LineChart },
   { id: 'net-yield', title: 'Rendement net', short: 'Rendement après frais et fiscalité', categories: ['finance', 'assurance-vie'], sections: ['calculators', 'investments'], keywords: ['rendement net', 'frais', 'fiscalite', 'pfu', 'flat tax'], icon: Percent },
   { id: 'discount', title: 'Actualisation', short: 'Valeur actuelle d’un montant futur', categories: ['finance'], sections: ['calculators'], keywords: ['actualisation', 'valeur actuelle', 'va', 'pv', 'discount'], icon: CalendarClock },
-  { id: 'cat', title: 'Compte à terme', short: 'Intérêts, TRI brut et net, fiscalité particulier ou IS', categories: ['finance', 'entreprise'], sections: ['calculators', 'investments'], keywords: ['cat', 'compte a terme', 'depot a terme', 'dat', 'tresorerie', 'taux progressif', 'is', 'societe'], icon: Coins },
+  { id: 'cat', title: 'Compte à terme', short: 'Intérêts, TRI brut et net, fiscalité particulier ou IS', categories: ['finance', 'entreprise'], sections: ['calculators', 'investments'], keywords: ['cat', 'compte a terme', 'depot a terme', 'dat', 'tresorerie', 'is', 'societe'], icon: Coins },
   { id: 'compare', title: 'Comparateur de placements', short: 'Capitaux nets finaux de plusieurs placements', categories: ['finance', 'assurance-vie', 'allocation'], sections: ['calculators', 'investments'], keywords: ['comparateur', 'comparer', 'placements', 'fonds euros', 'cto', 'pea'], icon: GitCompare },
   // B. Fiscalité
   { id: 'ir', title: 'Impôt sur le revenu', short: 'Barème, quotient familial, décote, TMI', categories: ['fiscalite', 'entreprise'], sections: ['calculators'], keywords: ['ir', 'impot', 'revenu', 'tmi', 'quotient familial', 'decote', 'bareme', 'parts', 'cehr'], icon: Percent },
@@ -56,8 +56,7 @@ export const SIMULATORS: SimMeta[] = [
   { id: 'pledge', title: 'Nantissement de portefeuille', short: 'Valeur éligible et ratio de couverture', categories: ['credit', 'entreprise'], sections: ['calculators'], keywords: ['nantissement', 'garantie', 'decote', 'haircut', 'couverture'], icon: Layers },
   // D. Obligations & structurés
   { id: 'bond', title: 'Calculateur obligataire', short: 'Rendement actuariel, coupon couru, duration', categories: ['obligations'], sections: ['calculators', 'investments'], keywords: ['obligation', 'bond', 'ytm', 'rendement actuariel', 'coupon couru', 'duration', 'pied de coupon'], icon: ScrollText },
-  { id: 'structured', title: 'Produits structurés', short: 'Autocall, Phoenix, reverse convertible, capital protégé', categories: ['structures'], sections: ['calculators', 'investments'], keywords: ['structure', 'autocall', 'athena', 'phoenix', 'reverse convertible', 'rc', 'capital protege', 'capital garanti', 'participation', 'rappel', 'barriere', 'coupon', 'memoire'], icon: Sparkles },
-  { id: 'scenarios', title: 'Simulateur de scénarios', short: 'Trajectoire personnalisée ou volatile par observation', categories: ['structures'], sections: ['calculators', 'investments'], keywords: ['scenario', 'stress', 'trajectoire', 'structure', 'backtest', 'volatilite', 'volatil'], icon: BarChart3 },
+  { id: 'structured', title: 'Produits structurés', short: 'Autocall, Phoenix, reverse convertible, capital protégé — scénarios standards ou trajectoire personnalisée', categories: ['structures'], sections: ['calculators', 'investments'], keywords: ['structure', 'scenario', 'stress', 'trajectoire', 'backtest', 'volatilite', 'volatil', 'autocall', 'athena', 'phoenix', 'reverse convertible', 'rc', 'capital protege', 'capital garanti', 'participation', 'rappel', 'barriere', 'coupon', 'memoire'], icon: Sparkles },
   // E. Patrimoine & investissement
   { id: 'projection', title: 'Projection patrimoniale', short: 'Patrimoine net à 10, 20 et 30 ans', categories: ['allocation', 'retraite'], sections: ['wealth'], keywords: ['projection', 'patrimoine', 'bilan', 'inflation', 'long terme'], icon: TrendingUp },
   { id: 'allocation', title: 'Allocation d’actifs', short: 'Poids, montants et rééquilibrage', categories: ['allocation'], sections: ['investments'], keywords: ['allocation', 'repartition', 'actions', 'obligations', 'private equity', 'reequilibrage'], icon: PieChart },
@@ -67,7 +66,7 @@ export const SIMULATORS: SimMeta[] = [
 ];
 
 /** Anciens identifiants (favoris, liens partagés, scénarios enregistrés) redirigés vers le simulateur unique. */
-export const SIM_ALIASES: Record<string, string> = { autocall: 'structured', phoenix: 'structured', 'reverse-convertible': 'structured' };
+export const SIM_ALIASES: Record<string, string> = { autocall: 'structured', phoenix: 'structured', 'reverse-convertible': 'structured', scenarios: 'structured' };
 export const resolveSimId = (id: string) => SIM_ALIASES[id] ?? id;
 export const getMeta = (id: string) => SIMULATORS.find((s) => s.id === resolveSimId(id));
 export const byCategory = (c: CategoryId) => SIMULATORS.filter((s) => s.categories.includes(c));

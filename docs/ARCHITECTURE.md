@@ -49,6 +49,7 @@ src/
 | Dates | UTC, format ISO ; ajout de mois avec conservation de la fin de mois. |
 | Structurés | niveaux en % du niveau initial ; paiement à la date d’observation ; barrière américaine approchée aux dates d’observation. Trajectoire volatile : marche log-normale (graine reproductible) transformée en pont brownien calé sur la performance cible. |
 | Fiscalité des placements | PFU = 12,8 % + PS ; barème = TMI + PS − TMI × 6,8 % (CSG déductible) ; PEA : PFU avant 5 ans, PS seuls après, imposition au retrait ; IS 25 % / 15 % sans PS ; CAT à l’IS : intérêts courus imposés par exercice. |
+| Lombard | ratio d’avance et SRI (1–7) pré-remplis par classe d’actifs (`LOMBARD_ASSET_CLASSES`) ; sensibilité au choc actions déduite du SRI (`SRI_SENSITIVITY` : 1 → 0, 5 → 1, 7 → 2). |
 | Garanties | sommes garanties = capital × (1 + accessoires) ; TPF 0,715 % (hypothèque seulement) ; CSI 0,05 % ; émoluments notariaux dégressifs + TVA. |
 
 ## Design system (interface)
@@ -75,7 +76,7 @@ src/
 - **IR** : revenu net imposable saisi directement ; réductions/crédits d’impôt, CDHR, lissage de la CEHR, réduction complémentaire des veufs non modélisés.
 - **Assurance-vie** : ventilation des produits avant/après 27/09/2017 au prorata des primes ; option barème approximée au TMI.
 - **PER** : plafond estimé hors reliquats N-3 et mutualisation ; sortie imposée au TMI saisi ; taux de conversion en rente fourni par l’utilisateur.
-- **Succession** : dévolution légale uniquement (pas de testament, donation au dernier vivant, assurance-vie hors succession, représentation, ascendants ordinaires).
+- **Succession** : dévolution légale et legs par testament (parts de l’actif net, réduits à proportion à la quotité disponible) ; imputation des libéralités sur les droits du conjoint, donation au dernier vivant, assurance-vie hors succession, représentation et ascendants ordinaires non modélisés. Chaque bénéficiaire reçoit le fondement de sa fiscalité (`basis`).
 - **IFI** : abattement annuel des prêts in fine et réductions IFI-dons non modélisés.
 - **Structurés** : pas de valorisation de marché (pas de modèle de pricing), ni risque émetteur ni frais ; fiscalité simplifiée (moins-values non imputées).
 - **Fiscalité des placements** : abattements spécifiques (40 % dividendes, durée de détention) et contribution sociale IS de 3,3 % non modélisés.

@@ -19,9 +19,9 @@ npm run preview    # servir le build localement
 | Domaine | Simulateurs |
 |---|---|
 | Calculs financiers | Intérêts composés · TRI/XIRR · CAGR · Rendement net · Actualisation · Compte à terme (TRI brut/net, sortie anticipée) · Comparateur de placements |
-| Fiscalité française | IR (QF, plafonnement, décote, CEHR) · IFI · Rachat assurance-vie · PER · Donation · Succession · Démembrement (art. 669) |
-| Financement | Crédit amortissable (TAEG, tableau, garantie) · Frais de garantie (hypothèque, HLS PD, mixte) · Capacité d’emprunt · In fine · Lombard (stress −10 à −40 %) · Nantissement |
-| Obligations & structurés | Calculateur obligataire (YTM, coupon couru, duration) · Produits structurés (Autocall/Athéna, Phoenix, Reverse convertible, capital protégé) · Scénarios personnalisés ou volatils |
+| Fiscalité française | IR (QF, plafonnement, décote, CEHR) · IFI · Rachat assurance-vie · PER · Donation · Succession (dévolution légale et legs) · Démembrement (art. 669) |
+| Financement | Crédit amortissable (TAEG, tableau, garantie) · Frais de garantie (hypothèque, HLS PD, mixte) · Capacité d’emprunt · In fine · Lombard (classes d’actifs, SRI, stress −10 à −40 %) · Nantissement |
+| Obligations & structurés | Calculateur obligataire (YTM, coupon couru, duration) · Produits structurés (Autocall/Athéna, Phoenix, Reverse convertible, capital protégé) avec scénarios standards ou trajectoire personnalisée / volatile |
 | Patrimoine | Projection 10/20/30 ans · Allocation d’actifs · Rente / retraits · Revenus complémentaires · Capitalisation vs distribution |
 
 **Fiscalité des placements** : chaque simulateur de placement propose le régime de l’investisseur — particulier (PFU, barème avec TMI, PEA selon l’ancienneté du plan), société à l’IS (25 % / 15 %), taux personnalisé ou aucune fiscalité.

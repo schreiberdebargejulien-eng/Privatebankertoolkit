@@ -207,15 +207,13 @@ export const discount = defineSim('discount', {
 
 /* --------------------------- Compte à terme --------------------------- */
 export const cat = defineSim('cat', {
-  description: 'Compte à terme à taux fixe ou progressif : intérêts, TRI brut et net, rendement réel, sortie anticipée et fiscalité (particulier PFU / barème, ou société à l’IS).',
-  defaults: (s) => ({ capital: 500_000, months: 36, rateMode: 'fixed', annualRate: 0.03, stepUp: 0.0025, paymentMode: 'maturity', earlyExit: false, exitMonth: 18, earlyRate: 0.01, inflation: s.inflation, ...taxDefaults('pfu') }),
+  description: 'Compte à terme à taux fixe : intérêts, TRI brut et net, rendement réel, sortie anticipée et fiscalité (particulier PFU / barème, ou société à l’IS).',
+  defaults: (s) => ({ capital: 500_000, months: 36, annualRate: 0.03, paymentMode: 'maturity', earlyExit: false, exitMonth: 18, earlyRate: 0.01, inflation: s.inflation, ...taxDefaults('pfu') }),
   fields: [
     { kind: 'group', label: 'Dépôt' },
     { kind: 'money', key: 'capital', label: 'Montant déposé' },
     { kind: 'number', key: 'months', label: 'Durée', unit: 'mois', integer: true, slider: { min: 1, max: 120, step: 1 } },
-    { kind: 'segmented', key: 'rateMode', label: 'Type de taux', options: [{ value: 'fixed', label: 'Fixe' }, { value: 'progressive', label: 'Progressif' }] },
-    { kind: 'percent', key: 'annualRate', label: 'Taux annuel brut (1re année)', digits: 3, slider: { min: 0, max: 6, step: 0.05 } },
-    { kind: 'percent', key: 'stepUp', label: 'Hausse du taux chaque année', digits: 3, visibleIf: (v) => v.rateMode === 'progressive' },
+    { kind: 'percent', key: 'annualRate', label: 'Taux annuel brut', digits: 3, slider: { min: 0, max: 6, step: 0.05 } },
     { kind: 'select', key: 'paymentMode', label: 'Versement des intérêts', options: [{ value: 'maturity', label: 'À l’échéance' }, { value: 'annual', label: 'Chaque année (anniversaire)' }, { value: 'capitalized', label: 'Capitalisés annuellement' }] },
     { kind: 'percent', key: 'inflation', label: 'Inflation (rendement réel)' },
     { kind: 'group', label: 'Sortie anticipée' },
@@ -225,7 +223,8 @@ export const cat = defineSim('cat', {
     ...taxFields({}),
   ],
   compute: (v) => {
-    const r = calculateTermDeposit({ ...v, customRate: v.taxRate } as never);
+    // Taux fixe uniquement : les grilles progressives changent trop souvent pour être paramétrées ici.
+    const r = calculateTermDeposit({ ...v, rateMode: 'fixed', stepUp: 0, customRate: v.taxRate } as never);
     const hasTax = v.taxRegime !== 'none';
     const corporate = v.taxRegime === 'is';
     return {
@@ -248,7 +247,7 @@ export const cat = defineSim('cat', {
         }],
         assumptions: [
           'Intérêts simples par année contractuelle : capital × taux × mois / 12' + (v.paymentMode === 'capitalized' ? ' ; intérêts ajoutés au capital à chaque anniversaire.' : '.'),
-          v.rateMode === 'progressive' ? `Taux progressif : ${pct(v.annualRate, 3)} la 1re année, puis +${pct(v.stepUp, 3)} par an.` : `Taux fixe de ${pct(v.annualRate, 3)} sur toute la durée.`,
+          `Taux fixe de ${pct(v.annualRate, 3)} sur toute la durée.`,
           ...(r.early ? [`Sortie au mois ${r.endMonth} : intérêts recalculés depuis l’origine au taux de ${pct(v.earlyRate, 3)} ; trop-perçu éventuel déduit du capital restitué.`] : []),
           `Fiscalité : ${r.tax.label} — ${r.tax.detail}`,
           corporate
@@ -262,7 +261,7 @@ export const cat = defineSim('cat', {
       chart: <BarSeriesChart title="Intérêts courus et impôt par année" x="year" data={r.rows.map((x) => ({ year: x.year, accrued: x.accrued, tax: x.tax }))} series={[{ key: 'accrued', label: 'Intérêts courus' }, { key: 'tax', label: 'Impôt payé' }]} />,
     };
   },
-  formula: ['I_k = C × t_k × m_k / 12 (capitalisés : C_k au lieu de C)', 't_k = t_1 + (k − 1) × pas (taux progressif)', 'Net = I − t × I ; t = 12,8 % + PS (PFU), TMI + PS − 6,8 % × TMI (barème), 15 % / 25 % (IS)', 'TRI : Σ flux / (1 + TRI)^(mois/12) = 0'],
+  formula: ['I_k = C × t × m_k / 12 (capitalisés : C_k au lieu de C)', 'Net = I − t × I ; t = 12,8 % + PS (PFU), TMI + PS − 6,8 % × TMI (barème), 15 % / 25 % (IS)', 'TRI : Σ flux / (1 + TRI)^(mois/12) = 0'],
   example: '100 000 € pendant 12 mois à 3 % : 3 000 € bruts, 2 058 € nets au PFU 2026 de 31,4 %, TRI net 2,06 %.',
 });
 
