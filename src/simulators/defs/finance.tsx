@@ -4,7 +4,7 @@ import { defineSim, TAX_MODE_OPTIONS, currentPFU, taxFields, taxDefaults, resolv
 import { calculateTermDeposit, resolveInvestmentTax, type TaxRegime } from '@/engine';
 import { money, pct, num, years as fmtYears, dateFR } from '@/lib/format';
 import { BarSeriesChart, LineSeriesChart } from '@/components/charts';
-import { Button, Card } from '@/components/ui/primitives';
+import { Button, Card, FormCard } from '@/components/ui/primitives';
 import { DateInput, NumberInput, Select, TextInput } from '@/components/ui/fields';
 
 
@@ -69,9 +69,7 @@ export const xirr = defineSim('xirr', {
     const flows: { date: string; amount: number | null }[] = values.flows;
     const upd = (k: number, p: object) => set({ flows: flows.map((f, i) => (i === k ? { ...f, ...p } : f)) });
     return (
-      <Card className="p-4">
-        <div className="text-[12px] font-semibold uppercase tracking-[0.08em] text-accent mb-1">Flux financiers</div>
-        <p className="text-xs text-muted mb-3">Investissements en négatif, distributions / valorisation finale en positif.</p>
+      <FormCard title="Flux financiers" description="Investissements en négatif, distributions / valorisation finale en positif.">
         <div className="space-y-2.5">
           {flows.map((f, k) => (
             <div key={k} className="grid grid-cols-[1fr_1fr_auto] gap-2 items-center">
@@ -81,8 +79,8 @@ export const xirr = defineSim('xirr', {
             </div>
           ))}
         </div>
-        <Button className="mt-3 w-full" onClick={() => set({ flows: [...flows, { date: todayISO(), amount: 0 }] })}><Plus className="h-4 w-4" /> Ajouter un flux</Button>
-      </Card>
+        <Button variant="subtle" className="mt-4 w-full" onClick={() => set({ flows: [...flows, { date: todayISO(), amount: 0 }] })}><Plus className="h-4 w-4" /> Ajouter un flux</Button>
+      </FormCard>
     );
   },
   compute: (v) => {
@@ -307,29 +305,29 @@ export const compare = defineSim('compare', {
           const regime = pl.taxRegime ?? 'custom';
           const eff = safeTax(pl, values);
           return (
-            <Card key={k} className="p-4 space-y-3">
+            <Card key={k} className="p-4 md:p-5 space-y-4">
               <div className="flex items-center gap-2">
-                <span className="h-6 w-6 rounded-full bg-accent/15 text-accent text-xs font-semibold flex items-center justify-center">{k + 1}</span>
+                <span className="h-6 w-6 shrink-0 rounded-full bg-accent/10 text-accent text-[12px] font-semibold tnum flex items-center justify-center">{k + 1}</span>
                 <div className="flex-1"><TextInput value={pl.label} onChange={(label) => upd(k, { label })} maxLength={30} /></div>
                 <Button variant="ghost" size="icon" aria-label="Supprimer" disabled={pls.length <= 2} onClick={() => set({ placements: pls.filter((_, i) => i !== k) })}><Trash2 className="h-4 w-4 text-muted" /></Button>
               </div>
               <div className="grid grid-cols-3 gap-2">
-                <label className="text-[11px] text-muted space-y-1"><span>Rendement brut</span><NumberInput value={pl.grossRate} scale={100} suffix="%" onChange={(grossRate) => upd(k, { grossRate })} /></label>
-                <label className="text-[11px] text-muted space-y-1"><span>Frais annuels</span><NumberInput value={pl.annualFee} scale={100} suffix="%" onChange={(annualFee) => upd(k, { annualFee })} /></label>
-                <label className="text-[11px] text-muted space-y-1"><span>Frais d’entrée</span><NumberInput value={pl.entryFee} scale={100} suffix="%" onChange={(entryFee) => upd(k, { entryFee })} /></label>
+                <label className="block space-y-1.5 text-[12px] font-medium text-muted"><span>Rendement brut</span><NumberInput value={pl.grossRate} scale={100} suffix="%" onChange={(grossRate) => upd(k, { grossRate })} /></label>
+                <label className="block space-y-1.5 text-[12px] font-medium text-muted"><span>Frais annuels</span><NumberInput value={pl.annualFee} scale={100} suffix="%" onChange={(annualFee) => upd(k, { annualFee })} /></label>
+                <label className="block space-y-1.5 text-[12px] font-medium text-muted"><span>Frais d’entrée</span><NumberInput value={pl.entryFee} scale={100} suffix="%" onChange={(entryFee) => upd(k, { entryFee })} /></label>
               </div>
               <div className="grid grid-cols-[1fr_7rem] gap-2 items-end">
-                <label className="text-[11px] text-muted space-y-1"><span>Fiscalité</span><Select value={regime} onChange={(taxRegime) => upd(k, { taxRegime: taxRegime as TaxRegime, taxMode: taxRegime === 'is' ? 'annual' : pl.taxMode === 'none' ? 'exit' : pl.taxMode })} options={taxRegimeOptions({ pea: true })} /></label>
-                {regime === 'custom' ? <label className="text-[11px] text-muted space-y-1"><span>Taux</span><NumberInput value={pl.taxRate} scale={100} suffix="%" onChange={(taxRate) => upd(k, { taxRate })} /></label>
+                <label className="block space-y-1.5 text-[12px] font-medium text-muted"><span>Fiscalité</span><Select value={regime} onChange={(taxRegime) => upd(k, { taxRegime: taxRegime as TaxRegime, taxMode: taxRegime === 'is' ? 'annual' : pl.taxMode === 'none' ? 'exit' : pl.taxMode })} options={taxRegimeOptions({ pea: true })} /></label>
+                {regime === 'custom' ? <label className="block space-y-1.5 text-[12px] font-medium text-muted"><span>Taux</span><NumberInput value={pl.taxRate} scale={100} suffix="%" onChange={(taxRate) => upd(k, { taxRate })} /></label>
                   : <div className="text-[12px] text-muted pb-2.5 text-right tnum">{regime === 'none' ? '—' : eff !== null ? pct(eff, 1) : ''}</div>}
               </div>
               {regime !== 'none' && regime !== 'pea' && (
-                <label className="text-[11px] text-muted space-y-1 block"><span>Imposition</span><Select value={pl.taxMode === 'annual' ? 'annual' : 'exit'} onChange={(taxMode) => upd(k, { taxMode })} options={TAX_MODE_OPTIONS.filter((x) => x.value !== 'none')} /></label>
+                <label className="block space-y-1.5 text-[12px] font-medium text-muted"><span>Imposition</span><Select value={pl.taxMode === 'annual' ? 'annual' : 'exit'} onChange={(taxMode) => upd(k, { taxMode })} options={TAX_MODE_OPTIONS.filter((x) => x.value !== 'none')} /></label>
               )}
             </Card>
           );
         })}
-        {pls.length < 5 && <Button className="w-full" onClick={() => set({ placements: [...pls, { label: `Placement ${pls.length + 1}`, grossRate: 0.04, annualFee: 0.01, entryFee: 0, taxRegime: 'pfu', taxMode: 'exit', taxRate: currentPFU() }] })}><Plus className="h-4 w-4" /> Ajouter un placement</Button>}
+        {pls.length < 5 && <Button variant="subtle" className="w-full" onClick={() => set({ placements: [...pls, { label: `Placement ${pls.length + 1}`, grossRate: 0.04, annualFee: 0.01, entryFee: 0, taxRegime: 'pfu', taxMode: 'exit', taxRate: currentPFU() }] })}><Plus className="h-4 w-4" /> Ajouter un placement</Button>}
         <p className="text-[12px] text-muted px-1">Taux personnalisé, ex. : 24,7 % = 7,5 % + 17,2 % (assurance-vie &gt; 8 ans, primes ≤ 150 000 €, avant abattement) ; {pct(currentPFU(), 1)} = PFU actuel.</p>
       </div>
     );

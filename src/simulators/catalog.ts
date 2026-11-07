@@ -98,3 +98,11 @@ export function searchSimulators(q: string): SimMeta[] {
   return scored.filter((x) => x.score > 0).sort((a, b) => b.score - a.score).map((x) => x.s);
 }
 
+
+/**
+ * Familles d'outils : chaque simulateur est rattaché à sa catégorie principale
+ * (la première déclarée), pour une présentation sans doublon.
+ */
+export const FAMILIES = CATEGORIES
+  .map((c) => ({ ...c, items: SIMULATORS.filter((s) => s.categories[0] === c.id) }))
+  .filter((f) => f.items.length > 0);

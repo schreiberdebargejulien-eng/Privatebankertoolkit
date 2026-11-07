@@ -3,7 +3,7 @@ import { calculateBondYield, calculateAutocall, runStructured, observationDates,
 import { defineSim, taxFields, taxDefaults, resolveTax } from '../helpers';
 import { money, pct, num, dateFR, years as fmtYears } from '@/lib/format';
 import { BarSeriesChart, LineSeriesChart } from '@/components/charts';
-import { Badge, Button, Card } from '@/components/ui/primitives';
+import { Badge, Button, Card, FormCard } from '@/components/ui/primitives';
 import { NumberInput, Select } from '@/components/ui/fields';
 import { DataTable } from '@/components/sim/ResultBlocks';
 import type { FieldDef, Values } from '../types';
@@ -139,8 +139,8 @@ function ScenarioDetail({ scenarios, initialLevel }: { scenarios: ScenarioResult
   const s = scenarios[Math.min(idx, scenarios.length - 1)];
   return (
     <div className="space-y-3">
-      <Card className="p-4">
-        <div className="text-[13px] font-semibold mb-2">Tableau chronologique des observations</div>
+      <Card className="p-4 md:p-5">
+        <div className="text-[14px] font-semibold tracking-tight mb-3">Tableau chronologique des observations</div>
         <Select value={idx} onChange={setIdx} options={scenarios.map((x, k) => ({ value: k, label: x.label }))} />
         <div className="mt-3 flex flex-wrap gap-2">
           {s.redeemedEarly ? <Badge tone="accent">Rappel le {dateFR(s.redemptionDate)}</Badge> : <Badge>Échéance {dateFR(s.redemptionDate)}</Badge>}
@@ -252,17 +252,15 @@ function TrajectoryForm({ values, set }: { values: Values; set: (p: Values) => v
     } catch { /* saisie incomplète */ }
   };
   return (
-    <Card className="p-4">
-      <div className="text-[12px] font-semibold uppercase tracking-[0.08em] text-accent mb-1">Trajectoire personnalisée</div>
-      <p className="text-xs text-muted mb-3">Niveau du sous-jacent à chaque observation, en % du niveau initial.</p>
+    <FormCard title="Trajectoire personnalisée" description="Niveau du sous-jacent à chaque observation, en % du niveau initial.">
       <div className="flex flex-wrap gap-2 mb-3">
         {[-0.5, -0.3, 0, 0.2].map((p) => <Button key={p} size="sm" onClick={() => preset(p, 'linear')}>{p === 0 ? 'Stable' : `${p > 0 ? '+' : '−'}${Math.abs(p * 100)} % linéaire`}</Button>)}
       </div>
-      <div className="rounded-xl border border-line/70 p-3 mb-3 space-y-3">
-        <div className="text-[12px] font-semibold">Trajectoire volatile</div>
+      <div className="rounded-xl bg-sunken/60 hairline p-3.5 mb-4 space-y-3">
+        <div className="text-[13px] font-semibold">Trajectoire volatile</div>
         <div className="grid grid-cols-2 gap-2">
-          <label className="text-[11px] text-muted space-y-1"><span>Perte / gain cible à l’échéance</span><NumberInput value={values.volTarget ?? 0} scale={100} suffix="%" allowNegative onChange={(volTarget) => set({ volTarget })} /></label>
-          <label className="text-[11px] text-muted space-y-1"><span>Volatilité annuelle</span><NumberInput value={values.volSigma ?? 0.2} scale={100} suffix="%" onChange={(volSigma) => set({ volSigma })} /></label>
+          <label className="block space-y-1.5 text-[12px] font-medium text-muted"><span>Perte / gain cible à l’échéance</span><NumberInput value={values.volTarget ?? 0} scale={100} suffix="%" allowNegative onChange={(volTarget) => set({ volTarget })} /></label>
+          <label className="block space-y-1.5 text-[12px] font-medium text-muted"><span>Volatilité annuelle</span><NumberInput value={values.volSigma ?? 0.2} scale={100} suffix="%" onChange={(volSigma) => set({ volSigma })} /></label>
         </div>
         <div className="flex flex-wrap gap-2 items-center">
           <Button size="sm" onClick={() => volatile(values.volSeed ?? 1)}>Générer</Button>
@@ -273,14 +271,14 @@ function TrajectoryForm({ values, set }: { values: Values; set: (p: Values) => v
       {dates.length > 60 ? <p className="text-xs text-neg">Trop d’observations pour une saisie manuelle (max 60).</p> : (
         <div className="grid grid-cols-2 gap-2">
           {dates.map((d, k) => (
-            <label key={d} className="text-[11px] text-muted space-y-1">
+            <label key={d} className="block space-y-1.5 text-[12px] font-medium text-muted">
               <span>Obs. {k + 1} · {dateFR(d)}</span>
               <NumberInput value={path[k]} scale={100} suffix="%" onChange={(x) => { const np = [...path]; np[k] = x; set({ customPath: np }); }} />
             </label>
           ))}
         </div>
       )}
-    </Card>
+    </FormCard>
   );
 }
 

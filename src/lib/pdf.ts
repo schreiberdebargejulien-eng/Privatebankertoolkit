@@ -30,9 +30,10 @@ export async function exportPDF(doc: ReportDoc) {
   const pdf = new jsPDF({ unit: 'pt', format: 'a4' });
   const W = pdf.internal.pageSize.getWidth();
   const M = 40;
-  const NIGHT: [number, number, number] = [16, 28, 44];
-  const GOLD: [number, number, number] = [197, 164, 109];
-  const GREY: [number, number, number] = [110, 121, 136];
+  // Identité : encre presque noire, accent bleu profond, gris secondaire, filets clairs
+  const NIGHT: [number, number, number] = [23, 25, 28];
+  const GOLD: [number, number, number] = [49, 94, 145];
+  const GREY: [number, number, number] = [106, 112, 121];
 
   const H = pdf.internal.pageSize.getHeight();
   const CONTENT_W = W - 2 * M;
@@ -40,19 +41,22 @@ export async function exportPDF(doc: ReportDoc) {
   const LIMIT = H - BOTTOM;
 
   // En-tête
-  pdf.setFillColor(...NIGHT);
-  pdf.rect(0, 0, W, 86, 'F');
+  pdf.setFillColor(...GOLD);
+  pdf.roundedRect(M, 20, 14, 14, 3, 3, 'F');
   pdf.setTextColor(...GOLD);
   pdf.setFont('helvetica', 'bold');
   pdf.setFontSize(9);
-  pdf.text('PRIVATE BANKER TOOLKIT', M, 30);
-  pdf.setTextColor(255, 255, 255);
+  pdf.text('PRIVATE BANKER TOOLKIT', M + 22, 30);
+  pdf.setTextColor(...NIGHT);
   pdf.setFontSize(18);
   pdf.text(pdf.splitTextToSize(pdfSafe(doc.title), CONTENT_W)[0], M, 56);
   pdf.setFont('helvetica', 'normal');
   pdf.setFontSize(9);
-  pdf.setTextColor(200, 205, 214);
+  pdf.setTextColor(...GREY);
   pdf.text(pdfSafe(`Simulation du ${new Date().toLocaleDateString('fr-FR')}`), M, 74);
+  pdf.setDrawColor(232, 234, 237);
+  pdf.setLineWidth(0.5);
+  pdf.line(M, 88, W - M, 88);
 
   let y = 112;
   pdf.setTextColor(...GREY);
@@ -77,7 +81,7 @@ export async function exportPDF(doc: ReportDoc) {
   type Align = 'left' | 'right';
   const tableTheme = {
     theme: 'plain' as const,
-    styles: { font: 'helvetica', fontSize: 9, cellPadding: { top: 4, bottom: 4, left: 5, right: 5 }, valign: 'middle' as const, overflow: 'linebreak' as const, textColor: NIGHT, lineColor: [223, 228, 235] as [number, number, number], lineWidth: { bottom: 0.5 } },
+    styles: { font: 'helvetica', fontSize: 9, cellPadding: { top: 4, bottom: 4, left: 5, right: 5 }, valign: 'middle' as const, overflow: 'linebreak' as const, textColor: NIGHT, lineColor: [232, 234, 237] as [number, number, number], lineWidth: { bottom: 0.5 } },
     headStyles: { fontStyle: 'bold' as const, textColor: GREY, fontSize: 8 },
     margin: { left: M, right: M, top: 50, bottom: BOTTOM },
     tableWidth: CONTENT_W,
@@ -184,7 +188,7 @@ export async function exportPDF(doc: ReportDoc) {
     pdf.setFontSize(7);
     pdf.setTextColor(...GREY);
     const disc = pdf.splitTextToSize(pdfSafe(doc.fiscal ? DISCLAIMER_FISCAL : DISCLAIMER_INVEST), W - 2 * M - 40);
-    pdf.setDrawColor(223, 228, 235);
+    pdf.setDrawColor(232, 234, 237);
     pdf.line(M, H - 48, W - M, H - 48);
     pdf.text(disc, M, H - 36);
     pdf.text(`${p} / ${pages}`, W - M, H - 36, { align: 'right' });

@@ -1,49 +1,60 @@
+import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { ChevronRight, Star } from 'lucide-react';
 import type { SimMeta } from '@/simulators/catalog';
-import { Card } from '@/components/ui/primitives';
+import { Card, IconTile } from '@/components/ui/primitives';
 import { useFavorites } from '@/lib/store';
 import { cn } from '@/lib/cn';
 
-export function SimRow({ s, right }: { s: SimMeta; right?: React.ReactNode }) {
-  const { isFavorite } = useFavorites();
+/** Étoile de favori : visible au survol sur ordinateur, toujours sur écran tactile ou si active. */
+export function FavoriteButton({ id, title, className }: { id: string; title: string; className?: string }) {
+  const { isFavorite, toggle } = useFavorites();
+  const fav = isFavorite(id);
   return (
-    <Link to={`/sim/${s.id}`} className="flex items-center gap-3 px-4 py-3 active:bg-surface2/70 lg:hover:bg-surface2/50 transition">
-      <div className="h-10 w-10 shrink-0 rounded-xl bg-accent/10 text-accent flex items-center justify-center"><s.icon className="h-[19px] w-[19px]" /></div>
-      <div className="flex-1 min-w-0">
-        <div className="text-[15px] font-medium leading-tight flex items-center gap-1.5">{s.title}{isFavorite(s.id) && <Star className="h-3 w-3 fill-gold text-gold" />}</div>
-        <div className="text-[12.5px] text-muted truncate mt-0.5">{s.short}</div>
-      </div>
-      {right ?? <ChevronRight className="h-4 w-4 text-muted/60 shrink-0" />}
-    </Link>
+    <button
+      type="button"
+      onClick={(e) => { e.preventDefault(); e.stopPropagation(); toggle(id); }}
+      aria-pressed={fav}
+      aria-label={fav ? `Retirer ${title} des favoris` : `Ajouter ${title} aux favoris`}
+      title={fav ? 'Retirer des favoris' : 'Ajouter aux favoris'}
+      className={cn('h-8 w-8 shrink-0 flex items-center justify-center rounded-md transition-[opacity,color,background-color] duration-160 hover:bg-surface2',
+        fav ? 'text-accent' : 'text-faint hover:text-fg reveal-on-hover', className)}
+    >
+      <Star className={cn('h-4 w-4', fav && 'fill-current')} strokeWidth={1.75} />
+    </button>
   );
 }
 
-export function SimList({ items, className }: { items: SimMeta[]; className?: string }) {
+/** Ligne d'outil : icône, nom, description, favori. Toute la ligne est cliquable (lien étiré). */
+export function SimRow({ s, right, meta, className }: { s: SimMeta; right?: ReactNode; meta?: ReactNode; className?: string }) {
+  return (
+    <div className={cn('group relative flex items-center gap-3 px-3.5 py-2.5 min-h-[56px] transition-colors duration-160 hover:bg-surface2/60 active:bg-surface2 has-[a:focus-visible]:bg-surface2', className)}>
+      <IconTile icon={s.icon} />
+      <div className="flex-1 min-w-0">
+        <Link to={`/sim/${s.id}`} className="block text-[14px] font-medium text-fg leading-tight truncate outline-none after:absolute after:inset-0">{s.title}</Link>
+        <div className="text-[12.5px] text-muted truncate mt-[3px]">{s.short}</div>
+      </div>
+      {meta && <div className="text-[12px] text-muted tnum shrink-0 hidden sm:block">{meta}</div>}
+      <div className="relative z-10 flex items-center">
+        {right ?? <FavoriteButton id={s.id} title={s.title} />}
+      </div>
+      <ChevronRight className="h-4 w-4 text-faint shrink-0 -ml-1 md:hidden" />
+    </div>
+  );
+}
+
+/** Liste groupée (séparateurs fins), sur une ou deux colonnes. */
+export function SimList({ items, className, columns = 2, meta }: { items: SimMeta[]; className?: string; columns?: 1 | 2; meta?: (s: SimMeta) => ReactNode }) {
   if (!items.length) return null;
-  // Une colonne sur téléphone, deux sur ordinateur (séparateurs via gap-px)
   return (
     <Card className={cn('overflow-hidden', className)}>
-      <div className="grid gap-px bg-line/60 lg:grid-cols-2">
-        {items.map((s) => <div key={s.id} className="bg-surface"><SimRow s={s} /></div>)}
-        {items.length % 2 === 1 && <div className="hidden lg:block bg-surface" />}
+      <div className={cn('grid', columns === 2 && 'lg:grid-cols-2')}>
+        {items.map((s, k) => (
+          <div key={s.id} className={cn('border-line', k > 0 && 'border-t', columns === 2 && k === 1 && 'lg:border-t-0', columns === 2 && k % 2 === 1 && 'lg:border-l')}>
+            <SimRow s={s} meta={meta?.(s)} />
+          </div>
+        ))}
       </div>
     </Card>
-  );
-}
-
-export function SimTiles({ items }: { items: SimMeta[] }) {
-  return (
-    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2.5 lg:gap-3">
-      {items.map((s) => (
-        <Link key={s.id} to={`/sim/${s.id}`} className="rounded-2xl bg-surface border border-line/70 p-3.5 active:scale-[0.98] hover:border-accent/40 transition flex flex-col gap-3 min-h-[104px]">
-          <div className="h-9 w-9 rounded-xl bg-accent/10 text-accent flex items-center justify-center"><s.icon className="h-[18px] w-[18px]" /></div>
-          <div>
-            <div className="text-[14px] font-semibold leading-tight">{s.title}</div>
-            <div className="text-[11.5px] text-muted mt-0.5 leading-snug line-clamp-2">{s.short}</div>
-          </div>
-        </Link>
-      ))}
-    </div>
   );
 }

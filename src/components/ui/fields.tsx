@@ -1,5 +1,5 @@
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
-import { ChevronDown } from 'lucide-react';
+import { ChevronsUpDown } from 'lucide-react';
 import { cn } from '@/lib/cn';
 
 /** Espaces (y compris insécables) insérées par le formatage fr-FR. */
@@ -17,15 +17,16 @@ export function parseFrNumber(s: string): number | null {
 
 export function FieldShell({ label, hint, htmlFor, children, error }: { label: string; hint?: string; htmlFor?: string; children: ReactNode; error?: string }) {
   return (
-    <div className="space-y-1.5">
-      <label htmlFor={htmlFor} className="block text-[13px] font-medium text-muted leading-tight">{label}</label>
+    <div className="space-y-1.5 min-w-0">
+      <label htmlFor={htmlFor} className="block text-[13px] font-medium text-fg/75 leading-tight">{label}</label>
       {children}
-      {error ? <p className="text-xs text-neg">{error}</p> : hint ? <p className="text-xs text-muted/80 leading-snug">{hint}</p> : null}
+      {error ? <p className="text-[12px] text-neg">{error}</p> : hint ? <p className="text-[12px] text-muted leading-snug">{hint}</p> : null}
     </div>
   );
 }
 
-const inputBase = 'w-full h-12 rounded-xl bg-surface2/70 border border-transparent px-3 text-[16px] text-fg placeholder:text-muted/60 outline-none transition focus:border-accent/60 focus:bg-surface';
+/** Champ de saisie : fond légèrement creusé, anneau d’accent au focus. */
+const inputBase = 'w-full h-11 rounded-[10px] bg-sunken border border-transparent px-3 text-[16px] text-fg placeholder:text-faint outline-none transition-[background-color,border-color,box-shadow] duration-160 ease-apple hover:border-line focus:bg-surface focus:border-accent/50 focus:shadow-focus';
 
 /** Inverse le signe d’une saisie en cours (« 12,5 » ↔ « -12,5 »), en conservant le reste du texte. */
 export function toggleSign(s: string): string {
@@ -87,13 +88,13 @@ export function NumberInput({ value, onChange, suffix, scale = 1, id, allowNegat
           onPointerDown={(e) => e.preventDefault()}
           onMouseDown={(e) => e.preventDefault()}
           onClick={flipSign}
-          className="absolute left-1.5 top-1/2 -translate-y-1/2 h-9 w-9 rounded-lg text-[17px] font-semibold leading-none text-muted bg-surface/70 border border-line/70 active:bg-line transition"
+          className="absolute left-[5px] top-1/2 -translate-y-1/2 h-8 w-8 rounded-md text-[16px] font-medium leading-none text-muted bg-surface hairline shadow-xs hover:text-fg active:bg-surface2 transition"
         >±</button>
       )}
       <input
         ref={inputRef}
         id={id}
-        className={cn(inputBase, 'tnum', showSign && 'pl-12', suffix && (suffix.length <= 2 ? 'pr-8' : 'pr-14'))}
+        className={cn(inputBase, 'tnum', showSign && 'pl-[42px]', suffix && (suffix.length <= 2 ? 'pr-8' : 'pr-14'))}
         inputMode="decimal"
         enterKeyHint="done"
         autoComplete="off"
@@ -112,20 +113,23 @@ export function NumberInput({ value, onChange, suffix, scale = 1, id, allowNegat
           commit(t);
         }}
       />
-      {suffix && <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted">{suffix}</span>}
+      {suffix && <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[13px] font-medium text-muted">{suffix}</span>}
     </div>
   );
 }
 
 export function Slider({ value, min, max, step, onChange, scale = 1 }: { value: number | null; min: number; max: number; step: number; onChange: (v: number) => void; scale?: number }) {
+  const v = value === null ? min : Math.min(max, Math.max(min, value * scale));
+  const fill = max > min ? ((v - min) / (max - min)) * 100 : 0;
   return (
     <input
       type="range"
-      className="w-full h-6 -mt-0.5"
+      className="range w-full block"
+      style={{ ['--fill' as string]: `${fill}%` }}
       min={min}
       max={max}
       step={step}
-      value={value === null ? min : Math.min(max, Math.max(min, value * scale))}
+      value={v}
       onChange={(e) => onChange(Number(e.target.value) / scale)}
       aria-hidden
       tabIndex={-1}
@@ -147,14 +151,14 @@ export function Select<T extends string | number>({ value, onChange, options, id
       >
         {options.map((o) => <option key={String(o.value)} value={String(o.value)}>{o.label}</option>)}
       </select>
-      <ChevronDown className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted" />
+      <ChevronsUpDown className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted" />
     </div>
   );
 }
 
 export function Segmented<T extends string | number>({ value, onChange, options }: { value: T; onChange: (v: T) => void; options: { value: T; label: string }[] }) {
   return (
-    <div className="flex rounded-xl bg-surface2/70 p-1 gap-1" role="radiogroup">
+    <div className="flex rounded-[10px] bg-surface2 p-[3px] gap-[3px]" role="radiogroup">
       {options.map((o) => (
         <button
           key={String(o.value)}
@@ -162,8 +166,8 @@ export function Segmented<T extends string | number>({ value, onChange, options 
           role="radio"
           aria-checked={o.value === value}
           onClick={() => onChange(o.value)}
-          className={cn('flex-1 min-h-10 rounded-lg px-2 text-[14px] font-medium transition leading-tight',
-            o.value === value ? 'bg-surface text-fg shadow-sm' : 'text-muted')}
+          className={cn('flex-1 min-h-[38px] rounded-lg px-2 py-1 text-[13.5px] font-medium leading-tight transition-[background-color,color,box-shadow] duration-160 ease-apple',
+            o.value === value ? 'bg-surface text-fg shadow-sm dark:bg-line' : 'text-muted hover:text-fg')}
         >{o.label}</button>
       ))}
     </div>
@@ -173,15 +177,15 @@ export function Segmented<T extends string | number>({ value, onChange, options 
 export function Toggle({ checked, onChange, label, hint }: { checked: boolean; onChange: (v: boolean) => void; label: string; hint?: string }) {
   const id = useId();
   return (
-    <label htmlFor={id} className="flex items-center justify-between gap-4 min-h-12 cursor-pointer">
+    <label htmlFor={id} className="flex items-center justify-between gap-4 min-h-11 cursor-pointer">
       <span className="min-w-0">
-        <span className="block text-[15px] text-fg leading-tight">{label}</span>
-        {hint && <span className="block text-xs text-muted mt-0.5 leading-snug">{hint}</span>}
+        <span className="block text-[14px] font-medium text-fg/90 leading-tight">{label}</span>
+        {hint && <span className="block text-[12px] text-muted mt-1 leading-snug">{hint}</span>}
       </span>
       <span className="relative shrink-0">
         <input id={id} type="checkbox" role="switch" className="peer sr-only" checked={checked} onChange={(e) => onChange(e.target.checked)} />
-        <span className="block h-[30px] w-[50px] rounded-full bg-line transition peer-checked:bg-accent" />
-        <span className="absolute left-[3px] top-[3px] h-6 w-6 rounded-full bg-white shadow transition peer-checked:translate-x-5" />
+        <span className="block h-[28px] w-[46px] rounded-full bg-line transition-colors duration-240 ease-apple peer-checked:bg-accent peer-focus-visible:shadow-focus" />
+        <span className="absolute left-[2px] top-[2px] h-6 w-6 rounded-full bg-white shadow-[0_2px_4px_rgba(0,0,0,0.18),0_0_0_0.5px_rgba(0,0,0,0.04)] transition-transform duration-240 ease-apple peer-checked:translate-x-[18px]" />
       </span>
     </label>
   );
